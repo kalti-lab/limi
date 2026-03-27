@@ -7,7 +7,7 @@ final class StatusBarCoordinator {
     private let controllers: [StatusBarController]
 
     init(store: UsageStore, providers: [ProviderKind]) {
-        self.controllers = providers.map { StatusBarController(provider: $0, store: store) }
+        self.controllers = providers.map { StatusBarController(provider: $0, store: store, settings: AppContainer.shared.settings) }
         _ = controllers
     }
 }
@@ -16,20 +16,23 @@ final class StatusBarCoordinator {
 final class StatusBarController {
     private let provider: ProviderKind
     private let store: UsageStore
+    private let settings: AppSettings
     private let statusItem: NSStatusItem
     private let popover: NSPopover
     private let hostingController: NSHostingController<AnyView>
     private var cancellables = Set<AnyCancellable>()
 
-    init(provider: ProviderKind, store: UsageStore) {
+    init(provider: ProviderKind, store: UsageStore, settings: AppSettings) {
         self.provider = provider
         self.store = store
+        self.settings = settings
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.popover = NSPopover()
         self.hostingController = NSHostingController(
             rootView: AnyView(
                 ProviderPopoverContainerView(provider: provider)
                     .environmentObject(store)
+                    .environmentObject(settings)
             )
         )
         configureStatusItem()
@@ -50,6 +53,7 @@ final class StatusBarController {
         popover.animates = true
         popover.contentViewController = hostingController
         popover.contentSize = NSSize(width: 392, height: 568)
+        popover.appearance = NSAppearance(named: .darkAqua)
     }
 
     private func subscribe() {
@@ -68,11 +72,19 @@ final class StatusBarController {
                 self.apply(snapshot: snapshot)
             }
             .store(in: &cancellables)
+
+        settings.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.apply(snapshot: self.store.snapshot(for: self.provider))
+            }
+            .store(in: &cancellables)
     }
 
     private func apply(snapshot: ProviderSnapshot) {
         guard let button = statusItem.button else { return }
-        let rendered = StatusItemRenderer.render(snapshot: snapshot)
+        let rendered = StatusItemRenderer.render(snapshot: snapshot, settings: settings)
         statusItem.length = max(rendered.size.width, 28)
         button.image = rendered.image
         button.imagePosition = .imageOnly
@@ -98,22 +110,25 @@ private struct ProviderPopoverContainerView: View {
 
     var body: some View {
         ProviderPopoverView(snapshot: store.snapshot(for: provider))
-            .frame(width: 392, height: 568, alignment: .topLeading)
     }
 }
 
 @MainActor
 private enum StatusItemRenderer {
-    static func render(snapshot: ProviderSnapshot) -> (image: NSImage, size: NSSize) {
+    static func render(snapshot: ProviderSnapshot, settings: AppSettings) -> (image: NSImage, size: NSSize) {
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let rootView = MenuBarLabelView(snapshot: snapshot)
+            .environmentObject(settings)
             .background(Color.clear)
         let hostingView = NSHostingView(rootView: rootView)
         let size = hostingView.fittingSize
         hostingView.frame = NSRect(origin: .zero, size: size)
-        let rep = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) ?? NSBitmapImageRep(
+        let pixelsWide = max(Int(size.width * scale), 1)
+        let pixelsHigh = max(Int(size.height * scale), 1)
+        let rep = NSBitmapImageRep(
             bitmapDataPlanes: nil,
-            pixelsWide: max(Int(size.width), 1),
-            pixelsHigh: max(Int(size.height), 1),
+            pixelsWide: pixelsWide,
+            pixelsHigh: pixelsHigh,
             bitsPerSample: 8,
             samplesPerPixel: 4,
             hasAlpha: true,
@@ -122,7 +137,12 @@ private enum StatusItemRenderer {
             bytesPerRow: 0,
             bitsPerPixel: 0
         )!
-        hostingView.cacheDisplay(in: hostingView.bounds, to: rep)
+        rep.size = size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSGraphicsContext.current?.cgContext.scaleBy(x: scale, y: scale)
+        hostingView.displayIgnoringOpacity(hostingView.bounds, in: NSGraphicsContext.current!)
+        NSGraphicsContext.restoreGraphicsState()
         let image = NSImage(size: size)
         image.addRepresentation(rep)
         image.isTemplate = false

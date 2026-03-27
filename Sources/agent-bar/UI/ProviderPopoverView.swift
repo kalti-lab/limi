@@ -5,33 +5,32 @@ struct ProviderPopoverView: View {
     let snapshot: ProviderSnapshot
 
     @EnvironmentObject private var store: UsageStore
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         ZStack {
             GlassPanelBackground(cornerRadius: 14)
 
             VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        header
-                        WindowCard(
-                            title: "5-Hour Session",
-                            window: snapshot.fiveHour,
-                            provider: snapshot.provider
-                        )
-                        WindowCard(
-                            title: "Weekly Limit",
-                            window: snapshot.weekly,
-                            provider: snapshot.provider
-                        )
-                        summaryCard
-                        sessionsCard
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+                    WindowCard(
+                        title: "5-Hour Session",
+                        window: snapshot.fiveHour,
+                        color: settings.tintColor
+                    )
+                    WindowCard(
+                        title: "Weekly Limit",
+                        window: snapshot.weekly,
+                        color: settings.accentColor
+                    )
+                    summaryCard
+                    customizeSection
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
 
                 Divider()
                     .overlay(AppTheme.stroke)
@@ -42,18 +41,16 @@ struct ProviderPopoverView: View {
                     .padding(.vertical, 14)
             }
         }
-        .frame(width: 392, height: 568, alignment: .topLeading)
+        .frame(width: 392, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text("\(snapshot.provider.displayName) Usage")
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                    ProviderBadge(provider: snapshot.provider)
-                }
+                Text("\(snapshot.provider.displayName) Usage")
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
                 Text(snapshot.sourceDescription)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(AppTheme.muted)
@@ -94,36 +91,26 @@ struct ProviderPopoverView: View {
         .background(cardBackground)
     }
 
-    private var sessionsCard: some View {
+    private var customizeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Recent Sessions (This Mac)")
+            Text("Customize")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.95))
 
-            if snapshot.recentSessions.isEmpty {
-                Text("No recent sessions.")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(AppTheme.muted)
-            } else {
-                ForEach(snapshot.recentSessions) { session in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(session.title)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        HStack {
-                            Text(session.subtitle)
-                            Spacer()
-                            Text(TokenFormatters.timeString(session.updatedAt))
-                        }
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(AppTheme.muted)
-                    }
+            ColorPaletteRow(label: "5-Hour", selectedIndex: $settings.tintColorIndex)
+            ColorPaletteRow(label: "Weekly", selectedIndex: $settings.accentColorIndex)
 
-                    if session.id != snapshot.recentSessions.last?.id {
-                        Divider().overlay(AppTheme.stroke)
-                    }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Bar Width")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(AppTheme.muted)
+                    Spacer()
+                    Text("\(Int(settings.barWidth))pt")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white)
                 }
+                Slider(value: $settings.barWidth, in: 16...60, step: 1)
             }
         }
         .padding(12)
@@ -144,13 +131,6 @@ struct ProviderPopoverView: View {
 
             Spacer()
 
-            SettingsLink {
-                Text("Settings")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
@@ -168,7 +148,7 @@ struct ProviderPopoverView: View {
 private struct WindowCard: View {
     let title: String
     let window: WindowSummary
-    let provider: ProviderKind
+    let color: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -179,13 +159,13 @@ private struct WindowCard: View {
                 Spacer()
                 Text(TokenFormatters.percentageString(for: window.utilization))
                     .font(.system(size: 15, weight: .heavy, design: .rounded))
-                    .foregroundStyle(AppTheme.tint(for: provider))
+                    .foregroundStyle(color)
             }
 
             ZStack(alignment: .leading) {
                 Capsule().fill(AppTheme.track)
                 Capsule()
-                    .fill(AppTheme.tint(for: provider))
+                    .fill(color)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .mask(alignment: .leading) {
                         GeometryReader { proxy in
@@ -216,6 +196,31 @@ private struct WindowCard: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(GlassCardBackground(cornerRadius: 16))
+    }
+}
+
+private struct ColorPaletteRow: View {
+    let label: String
+    @Binding var selectedIndex: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(AppTheme.muted)
+            HStack(spacing: 6) {
+                ForEach(0..<AppSettings.palette.count, id: \.self) { index in
+                    Circle()
+                        .fill(AppSettings.palette[index])
+                        .frame(width: 22, height: 22)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.white, lineWidth: selectedIndex == index ? 2 : 0)
+                        )
+                        .onTapGesture { selectedIndex = index }
+                }
+            }
+        }
     }
 }
 
@@ -274,11 +279,6 @@ private struct GlassPanelBackground: View {
                 )
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(AppTheme.glassStroke, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.16), radius: 14, x: 0, y: 8)
     }
 }
 

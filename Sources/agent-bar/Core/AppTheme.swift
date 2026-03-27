@@ -22,7 +22,7 @@ enum AppTheme {
     static func accent(for provider: ProviderKind) -> Color {
         switch provider {
         case .claude:
-            return Color(red: 0.17, green: 0.52, blue: 0.95)
+            return Color(red: 1.0, green: 0.50, blue: 0.22)
         case .codex:
             return Color(red: 0.50, green: 0.39, blue: 0.94)
         }

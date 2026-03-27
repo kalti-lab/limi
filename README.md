@@ -1,8 +1,21 @@
-# agent-bar
+# agent-bar-custom
 
-agent-bar is a macOS menu bar app for watching Claude Code and Codex usage at a glance.
+Customized fork of [agent-bar](https://github.com/chenjingdev/agent-bar) — a macOS menu bar app for watching Claude Code and Codex usage at a glance.
 
 It shows compact 5-hour usage bars in the menu bar and opens a detailed popover when clicked. The top bars are account-wide. The lower `This Mac` details come from local logs on the current machine.
+
+## Changes from Original
+
+- Removed menu bar item background, shadow, and border for a cleaner look
+- Retina (2x) rendering for sharp status bar icons
+- Removed redundant badge from popover header
+- Removed Recent Sessions section from popover
+- Removed Settings window (refresh interval fixed at 120s)
+- Added in-popover Customize section:
+  - Preset color palette for 5-Hour and Weekly bar colors
+  - Adjustable status bar width via slider
+- Weekly bar color changed to orange (customizable)
+- Swift tools version lowered to 5.10 for broader Xcode compatibility
 
 ## Screenshots
 
@@ -24,11 +37,12 @@ It shows compact 5-hour usage bars in the menu bar and opens a detailed popover 
 - Shows reset times, plan name, and local `This Mac` summaries
 - Hides providers that are not available on the current Mac
 - Keeps the last known good usage when an upstream usage endpoint is temporarily unavailable
+- Customizable bar colors and width from the popover
 
 ## Requirements
 
 - macOS 14 or later
-- Swift 6.2 or later, or Xcode Command Line Tools with `swift` available
+- Swift 5.10 or later, or Xcode Command Line Tools with `swift` available
 - Claude support: Claude Code installed, and logged in via macOS Keychain or `~/.claude/.credentials.json`
 - Codex support: `codex` in `~/.bun/bin/codex`, `/opt/homebrew/bin/codex`, or `/usr/local/bin/codex`
 - Codex support: `node` in `~/.bun/bin/node`, `/opt/homebrew/bin/node`, `/usr/local/bin/node`, or `/usr/bin/node`
@@ -38,8 +52,8 @@ If you install or log in to Claude Code or Codex after agent-bar is already runn
 ## Run
 
 ```bash
-git clone https://github.com/chenjingdev/agent-bar.git
-cd agent-bar
+git clone https://github.com/kalti-lab/agent-bar.git
+cd agent-bar-custom
 swift run agent-bar
 ```
 
@@ -75,3 +89,7 @@ Cache files:
 - Provider missing: check the required credentials or binaries above, then restart agent-bar
 - Value looks stale: open the popover and check the update timestamp; upstream may be temporarily unavailable or rate-limited
 - Top percentage does not match `This Mac`: expected when you use the same account on multiple Macs, or when local logs are incomplete
+
+## Credits
+
+Original project by [chenjingdev](https://github.com/chenjingdev/agent-bar)

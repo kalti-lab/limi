@@ -19,9 +19,7 @@ struct AgentBarApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsView()
-                .environmentObject(AppContainer.shared.settings)
-                .environmentObject(AppContainer.shared.store)
+            EmptyView()
         }
     }
 }
