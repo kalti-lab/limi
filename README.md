@@ -7,7 +7,7 @@ It shows compact 5-hour usage bars in the menu bar and opens a detailed popover 
 ## Changes from Original
 
 - Removed menu bar item background, shadow, and border for a cleaner look
-- Retina (2x) rendering for sharp status bar icons
+- Retina-quality menu bar rendering via SwiftUI ImageRenderer (sharp on all displays including multi-monitor setups)
 - Menu bar text and bar track color auto-switch based on menu bar appearance
 - Popover restyled to native macOS system appearance (follows light/dark mode)
 - Removed redundant badge from popover header

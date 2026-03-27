@@ -77,7 +77,8 @@ final class StatusBarController {
     private func apply(snapshot: ProviderSnapshot) {
         guard let button = statusItem.button else { return }
         let isDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let rendered = StatusItemRenderer.render(snapshot: snapshot, settings: settings, isDark: isDark)
+        let scale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2.0
+        let rendered = StatusItemRenderer.render(snapshot: snapshot, settings: settings, isDark: isDark, scale: scale)
         statusItem.length = max(rendered.size.width, 28)
         button.image = rendered.image
         button.imagePosition = .imageOnly
@@ -115,37 +116,15 @@ private struct ProviderPopoverContainerView: View {
 
 @MainActor
 private enum StatusItemRenderer {
-    static func render(snapshot: ProviderSnapshot, settings: AppSettings, isDark: Bool) -> (image: NSImage, size: NSSize) {
-        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+    static func render(snapshot: ProviderSnapshot, settings: AppSettings, isDark: Bool, scale: CGFloat = 2.0) -> (image: NSImage, size: NSSize) {
         let rootView = MenuBarLabelView(snapshot: snapshot, isDark: isDark)
             .environmentObject(settings)
-            .background(Color.clear)
-        let hostingView = NSHostingView(rootView: rootView)
-        let size = hostingView.fittingSize
-        hostingView.frame = NSRect(origin: .zero, size: size)
-        let pixelsWide = max(Int(size.width * scale), 1)
-        let pixelsHigh = max(Int(size.height * scale), 1)
-        let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: pixelsWide,
-            pixelsHigh: pixelsHigh,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        )!
-        rep.size = size
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-        NSGraphicsContext.current?.cgContext.scaleBy(x: scale, y: scale)
-        hostingView.displayIgnoringOpacity(hostingView.bounds, in: NSGraphicsContext.current!)
-        NSGraphicsContext.restoreGraphicsState()
-        let image = NSImage(size: size)
-        image.addRepresentation(rep)
-        image.isTemplate = false
-        return (image, size)
+        let renderer = ImageRenderer(content: rootView)
+        renderer.scale = scale
+        guard let nsImage = renderer.nsImage else {
+            return (NSImage(), .zero)
+        }
+        nsImage.isTemplate = false
+        return (nsImage, nsImage.size)
     }
 }
