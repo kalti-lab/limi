@@ -20,7 +20,8 @@ struct MenuBarLabelView: View {
                 primary: snapshot.fiveHour.utilization,
                 secondary: snapshot.weekly.utilization,
                 primaryColor: settings.tintColor,
-                secondaryColor: settings.accentColor
+                secondaryColor: settings.accentColor,
+                trackColor: isDark ? Color.white.opacity(0.14) : Color.black.opacity(0.14)
             )
             .frame(width: settings.barWidth, height: 8)
 
@@ -39,6 +40,7 @@ struct DualUsageBars: View {
     let secondary: Double?
     let primaryColor: Color
     let secondaryColor: Color
+    var trackColor: Color = AppTheme.track
 
     var body: some View {
         GeometryReader { proxy in
@@ -50,14 +52,14 @@ struct DualUsageBars: View {
             VStack(spacing: 2) {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
-                        .fill(AppTheme.track)
+                        .fill(trackColor)
                     RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
                         .fill(primaryColor)
                         .frame(width: topWidth)
                 }
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
-                        .fill(AppTheme.track)
+                        .fill(trackColor)
                     RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
                         .fill(secondaryColor)
                         .frame(width: bottomWidth)

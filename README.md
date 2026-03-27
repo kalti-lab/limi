@@ -8,7 +8,7 @@ It shows compact 5-hour usage bars in the menu bar and opens a detailed popover 
 
 - Removed menu bar item background, shadow, and border for a cleaner look
 - Retina (2x) rendering for sharp status bar icons
-- Menu bar text auto-switches between white/black based on menu bar appearance
+- Menu bar text and bar track color auto-switch based on menu bar appearance
 - Popover restyled to native macOS system appearance (follows light/dark mode)
 - Removed redundant badge from popover header
 - Removed Recent Sessions section from popover
