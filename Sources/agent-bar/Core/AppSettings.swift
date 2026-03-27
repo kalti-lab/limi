@@ -12,11 +12,10 @@ final class AppSettings: ObservableObject {
         Color(red: 0.55, green: 0.40, blue: 1.00),  // 4: indigo
         Color(red: 0.75, green: 0.40, blue: 1.00),  // 5: purple
         Color(red: 1.00, green: 0.40, blue: 0.75),  // 6: pink
-        Color(red: 1.00, green: 0.35, blue: 0.45),  // 7: rose
-        Color(red: 1.00, green: 0.35, blue: 0.35),  // 8: red
-        Color(red: 1.00, green: 0.50, blue: 0.22),  // 9: orange
-        Color(red: 1.00, green: 0.70, blue: 0.15),  // 10: amber
-        Color(red: 1.00, green: 0.85, blue: 0.25),  // 11: yellow
+        Color(red: 1.00, green: 0.35, blue: 0.35),  // 7: red
+        Color(red: 1.00, green: 0.50, blue: 0.22),  // 8: orange
+        Color(red: 1.00, green: 0.85, blue: 0.25),  // 9: yellow
+        Color(red: 1.0, green: 1.0, blue: 1.0),       // 10: white
     ]
 
     @Published var refreshIntervalSeconds: Double {
@@ -50,7 +49,7 @@ final class AppSettings: ObservableObject {
         let storedInterval = defaults.object(forKey: Keys.refreshIntervalSeconds) as? Double ?? 120
         self.refreshIntervalSeconds = max(storedInterval, 60)
         self.tintColorIndex = defaults.object(forKey: Keys.tintColorIndex) as? Int ?? 0
-        self.accentColorIndex = defaults.object(forKey: Keys.accentColorIndex) as? Int ?? 9
+        self.accentColorIndex = defaults.object(forKey: Keys.accentColorIndex) as? Int ?? 8
         self.barWidth = defaults.object(forKey: Keys.barWidth) as? Double ?? 24
     }
 

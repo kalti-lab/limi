@@ -8,72 +8,62 @@ struct ProviderPopoverView: View {
     @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
-        ZStack {
-            GlassPanelBackground(cornerRadius: 14)
-
-            VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 14) {
-                    header
-                    WindowCard(
-                        title: "5-Hour Session",
-                        window: snapshot.fiveHour,
-                        color: settings.tintColor
-                    )
-                    WindowCard(
-                        title: "Weekly Limit",
-                        window: snapshot.weekly,
-                        color: settings.accentColor
-                    )
-                    summaryCard
-                    customizeSection
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                header
                 Divider()
-                    .overlay(AppTheme.stroke)
-                    .padding(.horizontal, 16)
-
-                footer
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                WindowCard(
+                    title: "5-Hour Session",
+                    window: snapshot.fiveHour,
+                    color: settings.tintColor
+                )
+                Divider()
+                WindowCard(
+                    title: "Weekly Limit",
+                    window: snapshot.weekly,
+                    color: settings.accentColor
+                )
+                Divider()
+                summarySection
+                Divider()
+                customizeSection
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            Divider()
+
+            footer
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
         }
-        .frame(width: 392, alignment: .topLeading)
+        .frame(width: 320, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\(snapshot.provider.displayName) Usage")
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-                Text(snapshot.sourceDescription)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(AppTheme.muted)
-            }
-
+        HStack {
+            Text("\(snapshot.provider.displayName) Usage")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.primary)
             Spacer()
-
             Button {
                 store.refreshNow()
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.9))
         }
     }
 
-    private var summaryCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Usage Details")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.95))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
 
             SummaryRow(label: "Plan", value: snapshot.planName ?? "n/a")
             SummaryRow(label: "This Mac Today", value: TokenFormatters.compactTokenString(snapshot.todayTokens))
@@ -81,52 +71,38 @@ struct ProviderPopoverView: View {
 
             if let note = snapshot.note {
                 Text(note)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(AppTheme.muted)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
     }
 
     private var customizeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Customize")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.95))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
 
             ColorPaletteRow(label: "5-Hour", selectedIndex: $settings.tintColorIndex)
             ColorPaletteRow(label: "Weekly", selectedIndex: $settings.accentColorIndex)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Bar Width")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(AppTheme.muted)
-                    Spacer()
-                    Text("\(Int(settings.barWidth))pt")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white)
-                }
-                Slider(value: $settings.barWidth, in: 16...60, step: 1)
+            HStack {
+                Text("Bar Width")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Slider(value: $settings.barWidth, in: 16...60)
+                    .frame(maxWidth: .infinity)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
     }
 
     private var footer: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(snapshot.isStale ? "Last good value \(TokenFormatters.relativeUpdateString(updatedAt: snapshot.updatedAt))" : "Last updated \(TokenFormatters.relativeUpdateString(updatedAt: snapshot.updatedAt))")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(AppTheme.muted)
-                Text(TokenFormatters.dateTimeString(snapshot.updatedAt))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(AppTheme.muted.opacity(0.8))
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(snapshot.isStale ? "Last good value \(TokenFormatters.relativeUpdateString(updatedAt: snapshot.updatedAt))" : "Updated \(TokenFormatters.relativeUpdateString(updatedAt: snapshot.updatedAt))")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
             }
 
             Spacer()
@@ -135,13 +111,9 @@ struct ProviderPopoverView: View {
                 NSApplication.shared.terminate(nil)
             }
             .buttonStyle(.plain)
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.84))
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
         }
-    }
-
-    private var cardBackground: some View {
-        GlassCardBackground(cornerRadius: 16)
     }
 }
 
@@ -151,30 +123,19 @@ private struct WindowCard: View {
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(title)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.94))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
                 Spacer()
                 Text(TokenFormatters.percentageString(for: window.utilization))
-                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .bold).monospacedDigit())
                     .foregroundStyle(color)
             }
 
-            ZStack(alignment: .leading) {
-                Capsule().fill(AppTheme.track)
-                Capsule()
-                    .fill(color)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .mask(alignment: .leading) {
-                        GeometryReader { proxy in
-                            Capsule()
-                                .frame(width: proxy.size.width * CGFloat(min(window.utilization ?? 0, 1)))
-                        }
-                    }
-            }
-            .frame(height: 8)
+            ProgressView(value: min(window.utilization ?? 0, 1))
+                .tint(color)
 
             HStack {
                 switch window.displayStyle {
@@ -186,16 +147,13 @@ private struct WindowCard: View {
                     Text("Budget \(TokenFormatters.compactTokenString(window.limitTokens))")
                 }
             }
-            .font(.system(size: 11, weight: .medium, design: .rounded))
-            .foregroundStyle(AppTheme.muted)
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
 
             Text(TokenFormatters.resetLabelString(resetAt: window.resetAt))
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(AppTheme.muted)
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GlassCardBackground(cornerRadius: 16))
     }
 }
 
@@ -204,21 +162,20 @@ private struct ColorPaletteRow: View {
     @Binding var selectedIndex: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 4) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(AppTheme.muted)
-            HStack(spacing: 6) {
-                ForEach(0..<AppSettings.palette.count, id: \.self) { index in
-                    Circle()
-                        .fill(AppSettings.palette[index])
-                        .frame(width: 22, height: 22)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(Color.white, lineWidth: selectedIndex == index ? 2 : 0)
-                        )
-                        .onTapGesture { selectedIndex = index }
-                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 48, alignment: .leading)
+            ForEach(0..<AppSettings.palette.count, id: \.self) { index in
+                Circle()
+                    .fill(AppSettings.palette[index])
+                    .frame(width: 18, height: 18)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Color.primary, lineWidth: selectedIndex == index ? 2 : 0)
+                    )
+                    .onTapGesture { selectedIndex = index }
             }
         }
     }
@@ -231,98 +188,11 @@ private struct SummaryRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .foregroundStyle(AppTheme.muted)
+                .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
         }
-        .font(.system(size: 12, weight: .semibold, design: .rounded))
-    }
-}
-
-private struct GlassPanelBackground: View {
-    let cornerRadius: CGFloat
-
-    var body: some View {
-        ZStack {
-            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.14),
-                            Color.white.opacity(0.03)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            AppTheme.panelBackground.opacity(0.58),
-                            AppTheme.surface.opacity(0.76)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RadialGradient(
-                        colors: [
-                            AppTheme.accentGlow.opacity(0.18),
-                            .clear
-                        ],
-                        center: .topLeading,
-                        startRadius: 20,
-                        endRadius: 260
-                    )
-                )
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-}
-
-private struct GlassCardBackground: View {
-    let cornerRadius: CGFloat
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.10),
-                        Color.white.opacity(0.04)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(AppTheme.cardBackground.opacity(0.70))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-            )
-    }
-}
-
-private struct VisualEffectView: NSViewRepresentable {
-    let material: NSVisualEffectView.Material
-    let blendingMode: NSVisualEffectView.BlendingMode
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.state = .active
-        view.material = material
-        view.blendingMode = blendingMode
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.state = .active
-        nsView.material = material
-        nsView.blendingMode = blendingMode
+        .font(.system(size: 11))
     }
 }

@@ -2,12 +2,20 @@ import SwiftUI
 
 struct MenuBarLabelView: View {
     let snapshot: ProviderSnapshot
+    let isDark: Bool
 
     @EnvironmentObject private var settings: AppSettings
 
+    private var textColor: Color {
+        isDark ? .white : .black
+    }
+
     var body: some View {
         HStack(spacing: 4) {
-            ProviderBadge(provider: snapshot.provider, compact: true)
+            Text(snapshot.provider.shortName)
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .foregroundStyle(textColor)
+                .frame(width: 18, height: 16)
             DualUsageBars(
                 primary: snapshot.fiveHour.utilization,
                 secondary: snapshot.weekly.utilization,
@@ -18,23 +26,11 @@ struct MenuBarLabelView: View {
 
             Text(TokenFormatters.percentageString(for: snapshot.fiveHour.utilization))
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.96))
+                .foregroundStyle(textColor.opacity(0.96))
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 3)
         .background(Color.clear)
-    }
-}
-
-struct ProviderBadge: View {
-    let provider: ProviderKind
-    var compact = false
-
-    var body: some View {
-        Text(provider.shortName)
-            .font(.system(size: compact ? 10 : 10, weight: .black, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(width: compact ? 18 : 24, height: compact ? 16 : 20)
     }
 }
 

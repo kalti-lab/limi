@@ -8,13 +8,14 @@ It shows compact 5-hour usage bars in the menu bar and opens a detailed popover 
 
 - Removed menu bar item background, shadow, and border for a cleaner look
 - Retina (2x) rendering for sharp status bar icons
+- Menu bar text auto-switches between white/black based on menu bar appearance
+- Popover restyled to native macOS system appearance (follows light/dark mode)
 - Removed redundant badge from popover header
 - Removed Recent Sessions section from popover
 - Removed Settings window (refresh interval fixed at 120s)
 - Added in-popover Customize section:
-  - Preset color palette for 5-Hour and Weekly bar colors
+  - 11-color preset palette for both 5-Hour and Weekly bar colors
   - Adjustable status bar width via slider
-- Weekly bar color changed to orange (customizable)
 - Swift tools version lowered to 5.10 for broader Xcode compatibility
 
 ## Screenshots

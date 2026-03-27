@@ -48,14 +48,6 @@ final class StatusBarController {
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
     }
 
-    private func configurePopover() {
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentViewController = hostingController
-        popover.contentSize = NSSize(width: 392, height: 568)
-        popover.appearance = NSAppearance(named: .darkAqua)
-    }
-
     private func subscribe() {
         store.$claudeSnapshot
             .receive(on: RunLoop.main)
@@ -84,11 +76,19 @@ final class StatusBarController {
 
     private func apply(snapshot: ProviderSnapshot) {
         guard let button = statusItem.button else { return }
-        let rendered = StatusItemRenderer.render(snapshot: snapshot, settings: settings)
+        let isDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let rendered = StatusItemRenderer.render(snapshot: snapshot, settings: settings, isDark: isDark)
         statusItem.length = max(rendered.size.width, 28)
         button.image = rendered.image
         button.imagePosition = .imageOnly
         button.toolTip = "\(snapshot.provider.displayName) \(TokenFormatters.percentageString(for: snapshot.fiveHour.utilization))"
+    }
+
+    private func configurePopover() {
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = hostingController
+        popover.contentSize = NSSize(width: 320, height: 480)
     }
 
     @objc
@@ -115,9 +115,9 @@ private struct ProviderPopoverContainerView: View {
 
 @MainActor
 private enum StatusItemRenderer {
-    static func render(snapshot: ProviderSnapshot, settings: AppSettings) -> (image: NSImage, size: NSSize) {
+    static func render(snapshot: ProviderSnapshot, settings: AppSettings, isDark: Bool) -> (image: NSImage, size: NSSize) {
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-        let rootView = MenuBarLabelView(snapshot: snapshot)
+        let rootView = MenuBarLabelView(snapshot: snapshot, isDark: isDark)
             .environmentObject(settings)
             .background(Color.clear)
         let hostingView = NSHostingView(rootView: rootView)
