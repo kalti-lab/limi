@@ -2,23 +2,29 @@ import AppKit
 import SwiftUI
 
 struct MenuBarLabelView: View {
-    let snapshot: ProviderSnapshot
+    let provider: ProviderKind
+
+    @EnvironmentObject private var store: UsageStore
 
     var body: some View {
-        if let nsImage = renderedImage() {
-            Image(nsImage: nsImage)
-        } else {
-            Text(fallbackText)
+        let snapshot = store.snapshot(for: provider)
+        return Group {
+            if let nsImage = renderImage(for: snapshot) {
+                Image(nsImage: nsImage)
+            } else {
+                Text(fallbackText(for: snapshot))
+            }
         }
+        .id(snapshot.updatedAt)
     }
 
-    private var fallbackText: String {
+    private func fallbackText(for snapshot: ProviderSnapshot) -> String {
         let percent = TokenFormatters.percentageString(for: snapshot.fiveHour.utilization)
         return "\(snapshot.provider.shortName) \(percent)"
     }
 
     @MainActor
-    private func renderedImage() -> NSImage? {
+    private func renderImage(for snapshot: ProviderSnapshot) -> NSImage? {
         let scale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2.0
         let renderer = ImageRenderer(content: RenderedLabel(snapshot: snapshot))
         renderer.scale = scale

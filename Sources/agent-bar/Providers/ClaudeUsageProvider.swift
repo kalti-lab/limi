@@ -71,7 +71,21 @@ struct ClaudeUsageProvider: UsageProviding {
             )
         }
 
-        let credentials = try readCredentials()
+        let credentials: ClaudeCredentials
+        do {
+            credentials = try readCredentials()
+        } catch {
+            if let goodState = cache.makeLastGoodState(from: try? cache.readRaw()) {
+                let displayData = goodState.data.with(apiUnavailable: true, apiError: "auth")
+                return RemoteUsageResult(
+                    data: displayData,
+                    updatedAt: goodState.updatedAt,
+                    note: note(for: displayData),
+                    isStale: true
+                )
+            }
+            throw error
+        }
         let planName = planName(from: credentials.subscriptionType)
         let apiResult = await fetchUsageApi(accessToken: credentials.accessToken)
 
@@ -140,6 +154,17 @@ struct ClaudeUsageProvider: UsageProviding {
         }
 
         try? cache.write(data: failureData, timestamp: now)
+
+        if let goodState = cache.makeLastGoodState(from: previousCache) {
+            let displayData = goodState.data.with(apiUnavailable: true, apiError: apiResult.error)
+            return RemoteUsageResult(
+                data: displayData,
+                updatedAt: goodState.updatedAt,
+                note: note(for: displayData),
+                isStale: true
+            )
+        }
+
         return RemoteUsageResult(
             data: failureData,
             updatedAt: now,

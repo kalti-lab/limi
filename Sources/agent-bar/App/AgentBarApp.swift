@@ -18,7 +18,8 @@ struct AgentBarApp: App {
                 .environmentObject(store)
                 .environmentObject(settings)
         } label: {
-            MenuBarLabelView(snapshot: store.claudeSnapshot)
+            MenuBarLabelView(provider: .claude)
+                .environmentObject(store)
         }
         .menuBarExtraStyle(.window)
 
@@ -27,7 +28,8 @@ struct AgentBarApp: App {
                 .environmentObject(store)
                 .environmentObject(settings)
         } label: {
-            MenuBarLabelView(snapshot: store.codexSnapshot)
+            MenuBarLabelView(provider: .codex)
+                .environmentObject(store)
         }
         .menuBarExtraStyle(.window)
     }

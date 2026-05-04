@@ -21,7 +21,6 @@ It shows a compact gauge icon, provider label, and 5-hour usage percentage in th
 <table>
   <tr>
     <td width="50%"><img src="docs/images/claude-usage-popover.png" alt="Claude usage popover" /></td>
-    <td width="50%"><img src="docs/images/codex-usage-popover.png" alt="Codex usage popover" /></td>
   </tr>
   <tr>
     <td align="center"><strong>Claude</strong></td>

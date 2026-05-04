@@ -45,11 +45,13 @@ final class UsageStore: ObservableObject {
             var nextCodexSnapshot = self.codexSnapshot
 
             if availableProviders.contains(.claude) {
-                nextClaudeSnapshot = await claudeProvider.load()
+                let fetched = await claudeProvider.load()
+                nextClaudeSnapshot = Self.merge(fetched: fetched, into: nextClaudeSnapshot)
             }
 
             if availableProviders.contains(.codex) {
-                nextCodexSnapshot = await codexProvider.load()
+                let fetched = await codexProvider.load()
+                nextCodexSnapshot = Self.merge(fetched: fetched, into: nextCodexSnapshot)
             }
 
             guard Task.isCancelled == false else { return }
@@ -60,6 +62,26 @@ final class UsageStore: ObservableObject {
             self.isRefreshing = false
             self.refreshTask = nil
         }
+    }
+
+    private static func merge(fetched: ProviderSnapshot, into previous: ProviderSnapshot) -> ProviderSnapshot {
+        guard fetched.isStale, !previous.isStale else {
+            return fetched
+        }
+        return ProviderSnapshot(
+            provider: previous.provider,
+            updatedAt: previous.updatedAt,
+            fiveHour: previous.fiveHour,
+            weekly: previous.weekly,
+            planName: previous.planName,
+            todayTokens: fetched.todayTokens,
+            monthTokens: fetched.monthTokens,
+            recentSessions: fetched.recentSessions,
+            modelBreakdown: fetched.modelBreakdown,
+            sourceDescription: previous.sourceDescription,
+            note: fetched.note,
+            isStale: true
+        )
     }
 
     private func bindSettings() {

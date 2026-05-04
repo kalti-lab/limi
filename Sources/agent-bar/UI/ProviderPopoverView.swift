@@ -44,13 +44,18 @@ struct ProviderPopoverView: View {
             Text("\(snapshot.provider.displayName) Usage")
                 .font(.headline)
             Spacer()
-            Button {
-                store.refreshNow()
-            } label: {
-                Image(systemName: "arrow.clockwise")
+            if store.isRefreshing {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Button {
+                    store.refreshNow()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh now")
             }
-            .buttonStyle(.borderless)
-            .help("Refresh now")
         }
     }
 
