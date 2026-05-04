@@ -18,15 +18,7 @@ It shows a compact gauge icon, provider label, and 5-hour usage percentage in th
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/claude-usage-popover.png" alt="Claude usage popover" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Claude</strong></td>
-    <td align="center"><strong>Codex</strong></td>
-  </tr>
-</table>
+![Claude usage popover](docs/images/claude-usage-popover.png)
 
 ## Overview
 
