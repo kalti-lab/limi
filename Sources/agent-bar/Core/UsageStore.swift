@@ -69,13 +69,6 @@ final class UsageStore: ObservableObject {
                 self?.configureTimer()
             }
             .store(in: &cancellables)
-
-        settings.objectWillChange
-            .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshNow()
-            }
-            .store(in: &cancellables)
     }
 
     private func configureTimer() {

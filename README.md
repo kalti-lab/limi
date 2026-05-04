@@ -2,20 +2,18 @@
 
 Customized fork of [agent-bar](https://github.com/chenjingdev/agent-bar) — a macOS menu bar app for watching Claude Code and Codex usage at a glance.
 
-It shows compact 5-hour usage bars in the menu bar and opens a detailed popover when clicked. The top bars are account-wide. The lower `This Mac` details come from local logs on the current machine.
+It shows a compact gauge icon, provider label, and 5-hour usage percentage in the menu bar, and opens a detailed popover when clicked. The popover shows account-wide 5-hour and weekly usage. The `This Mac` details come from local logs on the current machine.
 
 ## Changes from Original
 
-- Removed menu bar item background, shadow, and border for a cleaner look
-- Retina-quality menu bar rendering via SwiftUI ImageRenderer (sharp on all displays including multi-monitor setups)
-- Menu bar text and bar track color auto-switch based on menu bar appearance
-- Popover restyled to native macOS system appearance (follows light/dark mode)
-- Removed redundant badge from popover header
+- Native macOS menu bar appearance via SwiftUI `MenuBarExtra(.window)` (no popover arrow, attaches directly under the menu bar item)
+- Menu bar label rendered as a template image so it auto-tints with light/dark menu bar appearance
+- Dynamic gauge icon (`gauge.with.dots.needle.X`) reflects 5-hour usage in five steps
+- Popover uses native macOS system colors and semantic typography (`.headline`/`.subheadline`/`.callout`/`.caption`)
+- Window cards distinguished by SF Symbol icons (clock for 5-hour, calendar for weekly) instead of color
+- Removed in-popover Customize section (color palette and bar width slider)
 - Removed Recent Sessions section from popover
 - Removed Settings window (refresh interval fixed at 120s)
-- Added in-popover Customize section:
-  - 11-color preset palette for both 5-Hour and Weekly bar colors
-  - Adjustable status bar width via slider
 - Swift tools version lowered to 5.10 for broader Xcode compatibility
 
 ## Screenshots
@@ -38,7 +36,6 @@ It shows compact 5-hour usage bars in the menu bar and opens a detailed popover 
 - Shows reset times, plan name, and local `This Mac` summaries
 - Hides providers that are not available on the current Mac
 - Keeps the last known good usage when an upstream usage endpoint is temporarily unavailable
-- Customizable bar colors and width from the popover
 
 ## Requirements
 

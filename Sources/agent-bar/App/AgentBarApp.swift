@@ -1,25 +1,34 @@
 import AppKit
 import SwiftUI
 
-final class AgentBarAppDelegate: NSObject, NSApplicationDelegate {
-    private var coordinator: StatusBarCoordinator?
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApplication.shared.setActivationPolicy(.accessory)
-        coordinator = StatusBarCoordinator(
-            store: AppContainer.shared.store,
-            providers: AppContainer.shared.availableProviders
-        )
-    }
-}
-
 @main
 struct AgentBarApp: App {
-    @NSApplicationDelegateAdaptor(AgentBarAppDelegate.self) private var appDelegate
+    @StateObject private var store = AppContainer.shared.store
+    @StateObject private var settings = AppContainer.shared.settings
+
+    private let availableProviders = AppContainer.shared.availableProviders
+
+    init() {
+        NSApplication.shared.setActivationPolicy(.accessory)
+    }
 
     var body: some Scene {
-        Settings {
-            EmptyView()
+        MenuBarExtra(isInserted: .constant(availableProviders.contains(.claude))) {
+            ProviderPopoverView(snapshot: store.claudeSnapshot)
+                .environmentObject(store)
+                .environmentObject(settings)
+        } label: {
+            MenuBarLabelView(snapshot: store.claudeSnapshot)
         }
+        .menuBarExtraStyle(.window)
+
+        MenuBarExtra(isInserted: .constant(availableProviders.contains(.codex))) {
+            ProviderPopoverView(snapshot: store.codexSnapshot)
+                .environmentObject(store)
+                .environmentObject(settings)
+        } label: {
+            MenuBarLabelView(snapshot: store.codexSnapshot)
+        }
+        .menuBarExtraStyle(.window)
     }
 }

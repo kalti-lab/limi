@@ -1,70 +1,67 @@
+import AppKit
 import SwiftUI
 
 struct MenuBarLabelView: View {
     let snapshot: ProviderSnapshot
-    let isDark: Bool
-
-    @EnvironmentObject private var settings: AppSettings
-
-    private var textColor: Color {
-        isDark ? .white : .black
-    }
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text(snapshot.provider.shortName)
-                .font(.system(size: 10, weight: .black, design: .rounded))
-                .foregroundStyle(textColor)
-                .frame(width: 18, height: 16)
-            DualUsageBars(
-                primary: snapshot.fiveHour.utilization,
-                secondary: snapshot.weekly.utilization,
-                primaryColor: settings.tintColor,
-                secondaryColor: settings.accentColor,
-                trackColor: isDark ? Color.white.opacity(0.14) : Color.black.opacity(0.14)
-            )
-            .frame(width: settings.barWidth, height: 8)
-
-            Text(TokenFormatters.percentageString(for: snapshot.fiveHour.utilization))
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(textColor.opacity(0.96))
+        if let nsImage = renderedImage() {
+            Image(nsImage: nsImage)
+        } else {
+            Text(fallbackText)
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 3)
-        .background(Color.clear)
+    }
+
+    private var fallbackText: String {
+        let percent = TokenFormatters.percentageString(for: snapshot.fiveHour.utilization)
+        return "\(snapshot.provider.shortName) \(percent)"
+    }
+
+    @MainActor
+    private func renderedImage() -> NSImage? {
+        let scale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2.0
+        let renderer = ImageRenderer(content: RenderedLabel(snapshot: snapshot))
+        renderer.scale = scale
+        guard let image = renderer.nsImage else { return nil }
+        image.isTemplate = true
+        return image
     }
 }
 
-struct DualUsageBars: View {
-    let primary: Double?
-    let secondary: Double?
-    let primaryColor: Color
-    let secondaryColor: Color
-    var trackColor: Color = AppTheme.track
+private struct RenderedLabel: View {
+    let snapshot: ProviderSnapshot
 
     var body: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            let topWidth = width * CGFloat(min(primary ?? 0, 1))
-            let bottomWidth = width * CGFloat(min(secondary ?? 0, 1))
-            let barCornerRadius = CGFloat(1.6)
+        (
+            Text("\(Image(systemName: gaugeSymbol)) ")
+                .fontWeight(.regular)
+            + Text(snapshot.provider.shortName)
+                .fontWeight(.bold)
+            + Text(" \(percentText)")
+                .fontWeight(.medium)
+        )
+        .font(.system(size: 11))
+        .monospacedDigit()
+        .foregroundStyle(.black)
+        .padding(.vertical, 2)
+        .padding(.horizontal, 1)
+    }
 
-            VStack(spacing: 2) {
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
-                        .fill(trackColor)
-                    RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
-                        .fill(primaryColor)
-                        .frame(width: topWidth)
-                }
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
-                        .fill(trackColor)
-                    RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
-                        .fill(secondaryColor)
-                        .frame(width: bottomWidth)
-                }
-            }
+    private var percentText: String {
+        TokenFormatters.percentageString(for: snapshot.fiveHour.utilization)
+    }
+
+    private var gaugeSymbol: String {
+        guard let utilization = snapshot.fiveHour.utilization else {
+            return "gauge.with.dots.needle.0percent"
+        }
+        let pct = utilization * 100
+        switch pct {
+        case ..<20: return "gauge.with.dots.needle.0percent"
+        case ..<40: return "gauge.with.dots.needle.33percent"
+        case ..<60: return "gauge.with.dots.needle.50percent"
+        case ..<80: return "gauge.with.dots.needle.67percent"
+        default: return "gauge.with.dots.needle.100percent"
         }
     }
 }
