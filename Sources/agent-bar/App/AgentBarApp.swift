@@ -14,7 +14,7 @@ struct AgentBarApp: App {
 
     var body: some Scene {
         MenuBarExtra(isInserted: .constant(availableProviders.contains(.claude))) {
-            ProviderPopoverView(snapshot: store.claudeSnapshot)
+            ProviderPopoverView(provider: .claude)
                 .environmentObject(store)
                 .environmentObject(settings)
         } label: {
@@ -24,7 +24,7 @@ struct AgentBarApp: App {
         .menuBarExtraStyle(.window)
 
         MenuBarExtra(isInserted: .constant(availableProviders.contains(.codex))) {
-            ProviderPopoverView(snapshot: store.codexSnapshot)
+            ProviderPopoverView(provider: .codex)
                 .environmentObject(store)
                 .environmentObject(settings)
         } label: {

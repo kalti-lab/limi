@@ -2,9 +2,13 @@ import AppKit
 import SwiftUI
 
 struct ProviderPopoverView: View {
-    let snapshot: ProviderSnapshot
+    let provider: ProviderKind
 
     @EnvironmentObject private var store: UsageStore
+
+    private var snapshot: ProviderSnapshot {
+        store.snapshot(for: provider)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
