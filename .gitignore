@@ -1,2 +1,5 @@
 .build
 AgentBar.app
+.DS_Store
+.swiftpm/
+build/
