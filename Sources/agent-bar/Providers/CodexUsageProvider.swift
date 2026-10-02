@@ -151,17 +151,14 @@ struct CodexUsageProvider: UsageProviding {
     }
 
     private func runAppServerRateLimitRequest() throws -> [String: Any] {
-        let codexBinary = try resolveCodexBinary()
-        let nodeBinary = try resolveNodeBinary()
-        let escapedCodexPath = codexBinary.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        let escapedNodePath = nodeBinary.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let launchCommand = try resolveCodexLaunchCommand()
         let pythonScript = """
 import json, os, pty, select, subprocess, sys, termios, time
 master, slave = pty.openpty()
 attrs = termios.tcgetattr(slave)
 attrs[3] = attrs[3] & ~termios.ECHO
 termios.tcsetattr(slave, termios.TCSANOW, attrs)
-process = subprocess.Popen(["\(escapedNodePath)", "\(escapedCodexPath)", "app-server", "--listen", "stdio://"], stdin=slave, stdout=slave, stderr=slave, text=False)
+process = subprocess.Popen(sys.argv[1:] + ["app-server", "--listen", "stdio://"], stdin=slave, stdout=slave, stderr=slave, text=False)
 os.close(slave)
 messages = [
   {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"agent-bar","version":"0.1"},"capabilities":{"experimentalApi":True}}},
@@ -186,7 +183,7 @@ while time.time() < deadline:
       obj = json.loads(line.decode(errors="ignore"))
     except Exception:
       continue
-    if obj.get("id") == 2 and "result" in obj:
+    if obj.get("id") == 2 and ("result" in obj or "error" in obj):
       found = obj
       break
   if found is not None:
@@ -205,7 +202,7 @@ print(json.dumps(found))
 
         let result = try runProcess(
             executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
-            arguments: ["-c", pythonScript],
+            arguments: ["-c", pythonScript] + launchCommand.map(\.path),
             timeout: 10
         )
 
@@ -219,6 +216,24 @@ print(json.dumps(found))
             throw CodexUsageError.appServer((error["message"] as? String) ?? "Codex app-server error")
         }
         return response
+    }
+
+    /// The npm/bun package ships `codex` as a Node script, while the Homebrew cask ships a native binary.
+    /// Scripts are run through Node explicitly because a menu bar app's PATH usually can't resolve `env node`.
+    private func resolveCodexLaunchCommand() throws -> [URL] {
+        let codexBinary = try resolveCodexBinary()
+        guard isScript(codexBinary) else {
+            return [codexBinary]
+        }
+        return [try resolveNodeBinary(), codexBinary]
+    }
+
+    private func isScript(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url.resolvingSymlinksInPath()) else {
+            return false
+        }
+        defer { try? handle.close() }
+        return (try? handle.read(upToCount: 2)) == Data("#!".utf8)
     }
 
     private func resolveCodexBinary() throws -> URL {
