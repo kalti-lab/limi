@@ -106,6 +106,8 @@ final class StatusBarController {
     private let panel: MenuBarPanel<AccountPopoverRoot>
     private var entries: [MenuBarEntry] = []
     private var dragSurface: BadgeDragSurface?
+    private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String)?
+    private var appearanceObservation: NSKeyValueObservation?
     var width: CGFloat { statusItem.length }
     var accessibilityLabel: String? { statusItem.button?.accessibilityLabel() }
     var popoverAccountIDs: [UUID] { panel.rootView.accountIDs }
@@ -117,6 +119,12 @@ final class StatusBarController {
         groupID = key
         self.positionID = positionID ?? key
         panel = MenuBarPanel(rootView: AccountPopoverRoot(accountIDs: [], groupID: key, store: store))
+        defer {
+            // Wallpaper or theme changes flip the menu bar between light and dark.
+            appearanceObservation = statusItem.button?.observe(\.effectiveAppearance) { [weak self] _, _ in
+                Task { @MainActor in self?.reapply() }
+            }
+        }
         statusItem.autosaveName = "account-" + self.positionID.uuidString
         statusItem.button?.target = self
         statusItem.button?.action = #selector(toggle(_:))
@@ -142,8 +150,10 @@ final class StatusBarController {
     }
     func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = "Group") {
         self.entries = entries
+        lastApplied = (config, explicitRows, name)
         let image = DisplayStatusRenderer.render(entries: entries, config: config,
-            height: max(18, NSStatusBar.system.thickness - 2), scale: statusItem.button?.window?.backingScaleFactor ?? 2, explicitRows: explicitRows)
+            height: max(18, NSStatusBar.system.thickness - 2), scale: statusItem.button?.window?.backingScaleFactor ?? 2, explicitRows: explicitRows,
+            appearance: statusItem.button?.effectiveAppearance)
         statusItem.length = image.size.width
         statusItem.button?.image = image
         dragSurface?.badgeImage = image
@@ -156,6 +166,10 @@ final class StatusBarController {
         var seen = Set<UUID>()
         let ids = entries.map(\.account.id).filter { seen.insert($0).inserted }
         if panel.rootView.accountIDs != ids { panel.rootView = AccountPopoverRoot(accountIDs: ids, groupID: groupID, store: store) }
+    }
+    private func reapply() {
+        guard let lastApplied else { return }
+        apply(entries, config: lastApplied.config, explicitRows: lastApplied.explicitRows, name: lastApplied.name)
     }
     func remove() { panel.close(); NSStatusBar.system.removeStatusItem(statusItem) }
     @objc private func toggle(_ sender: AnyObject?) {
@@ -204,7 +218,8 @@ enum DisplayStatusRenderer {
     static func render(entry: MenuBarEntry, config: DisplayConfiguration, height: CGFloat = 22, scale: CGFloat = 2) -> NSImage {
         render(entries: [entry], config: config, height: height, scale: scale)
     }
-    static func render(entries: [MenuBarEntry], config: DisplayConfiguration, height: CGFloat = 22, scale: CGFloat = 2, explicitRows: Bool = false) -> NSImage {
+    static func render(entries: [MenuBarEntry], config: DisplayConfiguration, height: CGFloat = 22, scale: CGFloat = 2, explicitRows: Bool = false,
+                       appearance: NSAppearance? = nil) -> NSImage {
         let visibleEntries = config.style == .text ? entries[...] : entries.prefix(MenuBarLayout.maximumLines)
         let allRows = explicitRows ? visibleEntries.map { Row(entry: $0, metric: $0.metric, label: $0.badgeLabel) } : entries.flatMap { rows($0, config: config) }
         // A single account keeps its lines in one column; a grouped item wraps at the configured row count.
@@ -226,7 +241,8 @@ enum DisplayStatusRenderer {
         } else { nil }
         let representativeFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold)
         let percentageRows = config.style == .text ? allRows : representativeRow.map { [$0] } ?? []
-        let percentageWidths = percentageRows.map { Self.width($0.percentage, representativeFont) }
+        let gaugeWidth: CGFloat = config.style == .text ? gaugeSize + 2 : 0
+        let percentageWidths = percentageRows.map { gaugeWidth + Self.width($0.percentage, representativeFont) }
         let percentageContent = percentageWidths.reduce(0, +) + CGFloat(max(0, percentageWidths.count - 1)) * gap
         let percentageGap: CGFloat = percentageContent > 0 && rowContent > 0 ? gap : 0
         let content = rowContent + percentageGap + percentageContent
@@ -238,10 +254,10 @@ enum DisplayStatusRenderer {
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(ceil(width * scale)), pixelsHigh: Int(ceil(height * scale)), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
         bitmap.size = NSSize(width: width, height: height)
         NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        NSColor(calibratedWhite: 0.14, alpha: 0.65).setFill()
-        NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width, height: height), xRadius: height / 2, yRadius: height / 2).fill()
+        // Text and tracks resolve against the menu bar's light or dark appearance.
+        (appearance ?? NSAppearance.currentDrawing()).performAsCurrentDrawingAppearance {
         if allRows.isEmpty && commonWidth == 0 {
-            text("+", font: .systemFont(ofSize: 12, weight: .bold), color: .white,
+            text("+", font: .systemFont(ofSize: 12, weight: .bold), color: .labelColor,
                  in: NSRect(x: 0, y: 0, width: width, height: height), align: .center)
         }
         if commonWidth > 0 {
@@ -266,10 +282,15 @@ enum DisplayStatusRenderer {
         }
         var percentageX = inset + commonWidth + commonGap + rowContent + percentageGap
         for (index, row) in percentageRows.enumerated() {
-            let color = NSColor.white.withAlphaComponent(row.entry.stale ? 0.6 : 0.96)
+            let color = foreground(stale: row.entry.stale)
+            if gaugeWidth > 0 {
+                drawGauge(for: row.metric.window?.utilization, color: color,
+                          in: NSRect(x: percentageX, y: (height - gaugeSize) / 2, width: gaugeSize, height: gaugeSize))
+            }
             text(row.percentage, font: representativeFont, color: color,
-                 in: NSRect(x: percentageX, y: 0, width: percentageWidths[index], height: height))
+                 in: NSRect(x: percentageX + gaugeWidth, y: 0, width: percentageWidths[index] - gaugeWidth, height: height))
             percentageX += percentageWidths[index] + gap
+        }
         }
         NSGraphicsContext.restoreGraphicsState()
         let image = NSImage(size: NSSize(width: width, height: height)); image.addRepresentation(bitmap)
@@ -296,12 +317,42 @@ enum DisplayStatusRenderer {
         let x = align == .center ? rect.midX - size.width / 2 : (align == .right ? rect.maxX - size.width : rect.minX)
         (string as NSString).draw(at: NSPoint(x: x, y: rect.midY - size.height / 2), withAttributes: attributes)
     }
+    private static var isDarkDrawing: Bool {
+        NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+    private static func foreground(stale: Bool) -> NSColor {
+        stale ? .secondaryLabelColor : .labelColor
+    }
+    static let gaugeSize: CGFloat = 13
+    // The fork's five-step gauge in front of each Text Only percentage.
+    static func gaugeSymbolName(for utilization: Double?) -> String {
+        let pct = (utilization ?? 0) * 100
+        switch pct {
+        case ..<20: return "gauge.with.dots.needle.0percent"
+        case ..<40: return "gauge.with.dots.needle.33percent"
+        case ..<60: return "gauge.with.dots.needle.50percent"
+        case ..<80: return "gauge.with.dots.needle.67percent"
+        default: return "gauge.with.dots.needle.100percent"
+        }
+    }
+    private static func drawGauge(for utilization: Double?, color: NSColor, in rect: NSRect) {
+        let configuration = NSImage.SymbolConfiguration(pointSize: rect.height - 1, weight: .regular)
+            .applying(.init(paletteColors: [color]))
+        guard let symbol = NSImage(systemSymbolName: gaugeSymbolName(for: utilization), accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration) else { return }
+        let size = symbol.size
+        let scale = min(rect.width / size.width, rect.height / size.height)
+        let drawn = NSSize(width: size.width * scale, height: size.height * scale)
+        symbol.draw(in: NSRect(x: rect.midX - drawn.width / 2, y: rect.midY - drawn.height / 2, width: drawn.width, height: drawn.height))
+    }
     private static func width(_ string: String, _ font: NSFont) -> CGFloat {
         ceil((string as NSString).size(withAttributes: [.font: font]).width)
     }
     private static func fillColor(_ row: Row) -> NSColor {
         let value = row.metric.window?.utilization ?? 0
-        let base = value >= alertThreshold ? NSColor(red: 0.98, green: 0.45, blue: 0.42, alpha: 1) : row.entry.display.color.barColor
+        // Pastel bar colors are made for dark menu bars; light ones need the deeper tone.
+        let accent = isDarkDrawing ? row.entry.display.color.barColor : row.entry.display.color.nsColor
+        let base = value >= alertThreshold ? NSColor(red: 0.98, green: 0.45, blue: 0.42, alpha: 1) : accent
         return base.withAlphaComponent(row.entry.stale ? 0.55 : 1)
     }
     static func showsPercentage(for entry: MenuBarEntry, config: DisplayConfiguration) -> Bool {
@@ -317,7 +368,7 @@ enum DisplayStatusRenderer {
         let badge = row.label
         let percent = row.percentage
         let badgeColor = entry.display.color.nsColor.withAlphaComponent(entry.stale ? 0.7 : 1)
-        let percentColor = NSColor.white.withAlphaComponent(entry.stale ? 0.6 : 0.96)
+        let percentColor = foreground(stale: entry.stale)
         let value = CGFloat(min(1, max(0, row.metric.window?.utilization ?? 0)))
         let badgePart = Part(width: width(badge, m.badgeFont) + 8) { rect, _ in
             badgeColor.setFill()
@@ -329,7 +380,7 @@ enum DisplayStatusRenderer {
         }
         func bar(_ utilization: Double?, thickness: CGFloat, y: CGFloat, color: NSColor, in rect: NSRect, scale: CGFloat) {
             let h = max(1, snapped(thickness, scale)), barY = snapped(y - h / 2, scale)
-            NSColor.white.withAlphaComponent(0.22).setFill()
+            NSColor.labelColor.withAlphaComponent(0.22).setFill()
             NSBezierPath(roundedRect: NSRect(x: rect.minX, y: barY, width: barWidth, height: h), xRadius: h / 2, yRadius: h / 2).fill()
             color.setFill()
             let fill = CGFloat(min(1, max(0, utilization ?? 0)))
@@ -352,10 +403,7 @@ enum DisplayStatusRenderer {
                 let line: CGFloat = diameter < 12 ? 1.5 : 2.75
                 let circle = NSRect(x: rect.minX + line / 2, y: rect.midY - diameter / 2 + line / 2, width: diameter - line, height: diameter - line)
                 let track = NSBezierPath(ovalIn: circle); track.lineWidth = line
-                NSColor.black.withAlphaComponent(0.38).setFill()
-                NSBezierPath(ovalIn: NSRect(x: rect.minX + line, y: rect.midY - diameter / 2 + line,
-                                            width: diameter - line * 2, height: diameter - line * 2)).fill()
-                NSColor.white.withAlphaComponent(0.30).setStroke(); track.stroke()
+                NSColor.labelColor.withAlphaComponent(0.25).setStroke(); track.stroke()
                 if value > 0 {
                     let arc = NSBezierPath(); arc.lineWidth = line; arc.lineCapStyle = .round
                     arc.appendArc(withCenter: NSPoint(x: circle.midX, y: circle.midY), radius: circle.width / 2, startAngle: 90, endAngle: 90 - 360 * value, clockwise: true)
@@ -374,7 +422,8 @@ enum DisplayStatusRenderer {
                 let pillHeight = m.capsuleHeight
                 let pill = NSRect(x: rect.minX, y: rect.midY - pillHeight / 2, width: rect.width, height: pillHeight)
                 let path = NSBezierPath(roundedRect: pill, xRadius: pillHeight / 2, yRadius: pillHeight / 2)
-                NSColor.white.withAlphaComponent(0.18).setFill(); path.fill()
+                // A self-contained dark pill keeps the white label readable on any menu bar.
+                NSColor(calibratedWhite: 0.14, alpha: 0.65).setFill(); path.fill()
                 NSGraphicsContext.saveGraphicsState(); path.addClip()
                 let fill = value >= alertThreshold ? NSColor(red: 0.80, green: 0.30, blue: 0.28, alpha: 1) : entry.display.color.nsColor
                 fill.withAlphaComponent(entry.stale ? 0.55 : 0.95).setFill()
