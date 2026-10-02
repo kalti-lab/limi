@@ -103,21 +103,20 @@ final class StatusBarController {
     private var groupID: UUID
     let positionID: UUID
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let popover = NSPopover()
-    private let host: NSHostingController<AccountPopoverRoot>
+    private let panel: MenuBarPanel<AccountPopoverRoot>
     private var entries: [MenuBarEntry] = []
     private var dragSurface: BadgeDragSurface?
     var width: CGFloat { statusItem.length }
     var accessibilityLabel: String? { statusItem.button?.accessibilityLabel() }
-    var popoverAccountIDs: [UUID] { host.rootView.accountIDs }
-    var popoverGroupID: UUID { host.rootView.groupID }
+    var popoverAccountIDs: [UUID] { panel.rootView.accountIDs }
+    var popoverGroupID: UUID { panel.rootView.groupID }
     var screenWidth: CGFloat? { statusItem.button?.window?.screen?.frame.width }
     var screenFrame: NSRect? { statusItem.button?.window?.frame }
     init(key: UUID, store: UsageStore, positionID: UUID? = nil, moveGroup: ((UUID, UUID) -> Bool)? = nil) {
         self.store = store
         groupID = key
         self.positionID = positionID ?? key
-        host = NSHostingController(rootView: AccountPopoverRoot(accountIDs: [], groupID: key, store: store))
+        panel = MenuBarPanel(rootView: AccountPopoverRoot(accountIDs: [], groupID: key, store: store))
         statusItem.autosaveName = "account-" + self.positionID.uuidString
         statusItem.button?.target = self
         statusItem.button?.action = #selector(toggle(_:))
@@ -127,21 +126,19 @@ final class StatusBarController {
         if let button = statusItem.button {
             let surface = BadgeDragSurface(groupID: key, frame: button.bounds)
             surface.onClick = { [weak self] in self?.toggle(nil) }
-            surface.onDrag = { [weak self] in self?.popover.close() }
+            surface.onDrag = { [weak self] in self?.panel.close() }
             surface.acceptsGroup = { [weak store] id in store?.displayConfiguration.effectiveLayouts.contains { $0.id == id } == true }
             surface.onDropGroup = moveGroup ?? { [weak store] source, target in store?.moveMenuBarGroup(source, to: target) ?? false }
             button.addSubview(surface)
             dragSurface = surface
         }
-        popover.behavior = .transient
-        popover.contentViewController = host
     }
     func represent(_ id: UUID) {
         guard groupID != id else { return }
-        popover.close()
+        panel.close()
         groupID = id
         dragSurface?.groupID = id
-        host.rootView = AccountPopoverRoot(accountIDs: [], groupID: id, store: store)
+        panel.rootView = AccountPopoverRoot(accountIDs: [], groupID: id, store: store)
     }
     func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = "Group") {
         self.entries = entries
@@ -158,26 +155,15 @@ final class StatusBarController {
         statusItem.button?.setAccessibilityLabel(accessibleDescription)
         var seen = Set<UUID>()
         let ids = entries.map(\.account.id).filter { seen.insert($0).inserted }
-        if host.rootView.accountIDs != ids { host.rootView = AccountPopoverRoot(accountIDs: ids, groupID: groupID, store: store) }
+        if panel.rootView.accountIDs != ids { panel.rootView = AccountPopoverRoot(accountIDs: ids, groupID: groupID, store: store) }
     }
-    func remove() { popover.close(); NSStatusBar.system.removeStatusItem(statusItem) }
+    func remove() { panel.close(); NSStatusBar.system.removeStatusItem(statusItem) }
     @objc private func toggle(_ sender: AnyObject?) {
         guard let button = statusItem.button else { return }
         store.selectMenuBarGroup(groupID)
         if entries.isEmpty { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID); return }
-        if popover.isShown { popover.performClose(sender) }
-        else {
-            // Size to the tallest account's cards instead of leaving a fixed blank area.
-            let wanted = entries.map { entry -> CGFloat in
-                let cards = entry.metrics.filter { $0.window?.utilization != nil }.count
-                let notes = entry.metrics.filter { $0.window?.utilization == nil && $0.id.hasPrefix("model:") }.count
-                return CGFloat(180 + cards * 120 + notes * 24) + (entries.count > 1 ? 40 : 0)
-            }.max() ?? 240
-            let height = min(wanted, max(240, (button.window?.screen?.visibleFrame.height ?? 768) - 40))
-            popover.contentSize = NSSize(width: 392, height: height)
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
-        }
+        // The panel sizes itself to its content.
+        if panel.isShown { panel.close() } else { panel.show(below: button) }
     }
 }
 
