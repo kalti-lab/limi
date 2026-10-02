@@ -208,6 +208,17 @@ private struct MenuBarGroupEditor: View {
                 Text(usageLinesHint).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if !group.rows.isEmpty {
+                // Column titles line up with each line's account picker and limit buttons.
+                HStack(spacing: 6) {
+                    if group.style != .ring { Color.clear.frame(width: 14, height: 1) }
+                    Text("Account").padding(.leading, 11).frame(width: 150, alignment: .leading)
+                    Text("Limit").frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.bottom, -8)
+                .accessibilityHidden(true)
+            }
             ForEach(0..<editorSlotCount, id: \.self) { slot in
                 VStack(spacing: 0) {
                 if let index = lineIndex(for: slot) {
@@ -398,7 +409,7 @@ private struct MenuBarLineEditor: View {
                     }
                 })) {
                     ForEach(store.orderedAccounts) { Text(store.accountLabel(for: $0) + " · " + $0.provider.shortName).tag($0.id) }
-                }.labelsHidden().frame(width: 150)
+                }.labelsHidden().frame(width: 150, alignment: .leading)
                 HStack(spacing: 4) {
                     ForEach(limitChoices) { metric in
                         Button {
