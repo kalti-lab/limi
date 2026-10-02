@@ -239,3 +239,27 @@ struct DisplayConfigurationTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasPrefix("display-preserved-") })
     }
 }
+
+struct AccountDeletionGroupTests {
+    @Test func readdedAccountFillsTheGroupItsPredecessorLeftEmpty() {
+        let claude = UsageAccount(id: UUID(), provider: .claude, name: "Claude")
+        let codex = UsageAccount(id: UUID(), provider: .codex, name: "Codex")
+        var config = DisplayConfiguration()
+        config.sync([claude, codex])
+        config.editLayouts { _ in }
+        #expect(config.layouts?.map(\.name) == ["CL", "CX"])
+
+        config.sync([claude])
+        #expect(config.layouts?.map(\.name) == ["CL", "CX"] && config.layouts?[1].rows.isEmpty == true)
+
+        let again = UsageAccount(id: UUID(), provider: .codex, name: "Codex")
+        config.sync([claude, again])
+        #expect(config.layouts?.map(\.name) == ["CL", "CX"])
+        #expect(config.layouts?[1].rows.map(\.accountID) == [again.id])
+        #expect(config.valid)
+
+        let third = UsageAccount(id: UUID(), provider: .codex, name: "Codex 2")
+        config.sync([claude, again, third])
+        #expect(config.layouts?.count == 3) // no empty group left, so a new one is added
+    }
+}

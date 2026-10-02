@@ -203,7 +203,14 @@ struct DisplayConfiguration: Codable, Equatable {
             for i in layouts!.indices { layouts![i].rows.removeAll { !ids.contains($0.accountID) } }
             normalizeTextLineSlots()
             for account in live where accounts[account.id.uuidString] == nil {
-                layouts!.append(MenuBarLayout(name: account.title, rows: [MenuBarLine(accountID: account.id, metricID: "weekly")]))
+                let line = MenuBarLine(accountID: account.id, metricID: "weekly")
+                // Fill a group left empty (e.g. by deleting its account) before adding
+                // another one, so a re-added account doesn't sit beside a bare "+" item.
+                if let empty = layouts!.firstIndex(where: { $0.enabled && $0.rows.isEmpty }) {
+                    layouts![empty].rows = [line]
+                } else {
+                    layouts!.append(MenuBarLayout(name: account.title, rows: [line]))
+                }
             }
         }
         order.removeAll { !ids.contains($0) }

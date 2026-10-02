@@ -221,17 +221,17 @@ struct LoginProgressView: View {
                 if pending.replacing != nil {
                     if store.reconnectionComparison == .different {
                         Text("This is a different account from the one being reconnected. It can only be added as a new account.")
-                        Button("Add Account") { store.confirmLogin(addAsNew: true) }.buttonStyle(.borderedProminent)
+                        Button("Add Account") { store.confirmLogin(addAsNew: true) }.keyboardShortcut(.defaultAction)
                     } else if store.reconnectionComparison != .same {
                         Text("The account identity could not be verified automatically. Reconnect only if this is the same account.")
                         HStack {
-                            Button("Reconnect") { store.confirmLogin(replaceUnverified: true) }.buttonStyle(.borderedProminent)
+                            Button("Reconnect") { store.confirmLogin(replaceUnverified: true) }.keyboardShortcut(.defaultAction)
                             Button("Add Account") { store.confirmLogin(addAsNew: true) }
                         }
-                    } else { Button("Reconnect") { store.confirmLogin() }.buttonStyle(.borderedProminent) }
-                } else { Button("Add Account") { store.confirmLogin() }.buttonStyle(.borderedProminent) }
+                    } else { Button("Reconnect") { store.confirmLogin() }.keyboardShortcut(.defaultAction) }
+                } else { Button("Add Account") { store.confirmLogin() }.keyboardShortcut(.defaultAction) }
             }
-            Button("Cancel", role: .cancel) { store.cancelLogin() }
+            Button("Cancel", role: .cancel) { store.cancelLogin() }.keyboardShortcut(.cancelAction)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
