@@ -247,8 +247,9 @@ enum DisplayStatusRenderer {
         let percentageGap: CGFloat = percentageContent > 0 && rowContent > 0 ? gap : 0
         let content = rowContent + percentageGap + percentageContent
         let commonText = config.commonBadgeText ?? ""
-        let commonFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold)
-        let commonWidth = commonText.isEmpty ? 0 : Self.width(commonText, commonFont) + 12
+        let commonFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        // The group label is plain menu bar text, like a native status item title.
+        let commonWidth = commonText.isEmpty ? 0 : Self.width(commonText, commonFont)
         let commonGap: CGFloat = commonWidth > 0 && content > 0 ? gap : 0
         let width = ceil(inset * 2 + (commonWidth > 0 ? commonWidth + commonGap + content : max(content, 10)))
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(ceil(width * scale)), pixelsHigh: Int(ceil(height * scale)), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
@@ -261,11 +262,8 @@ enum DisplayStatusRenderer {
                  in: NSRect(x: 0, y: 0, width: width, height: height), align: .center)
         }
         if commonWidth > 0 {
-            let badgeHeight = min(16, height - 4)
-            let rect = NSRect(x: inset, y: (height - badgeHeight) / 2, width: commonWidth, height: badgeHeight)
-            config.commonBadgeColor.nsColor.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4).fill()
-            text(commonText, font: commonFont, color: .white, in: rect, align: .center)
+            text(commonText, font: commonFont, color: .labelColor,
+                 in: NSRect(x: inset, y: 0, width: commonWidth, height: height))
         }
         var columnX = inset + commonWidth + commonGap
         for (column, rows) in laidOut.enumerated() {

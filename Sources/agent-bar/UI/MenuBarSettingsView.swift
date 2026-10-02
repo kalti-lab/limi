@@ -22,63 +22,84 @@ struct MenuBarSettingsView: View {
     private var selected: MenuBarLayout? { groups.first { $0.id == store.selectedMenuBarGroupID } ?? groups.first }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Build each menu bar group from any mix of accounts and limits.")
-                    .font(.callout).foregroundStyle(.secondary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 6)], spacing: 6) {
-                    ForEach(groups) { group in
-                        Button { store.selectMenuBarGroup(group.id) } label: {
-                            groupLabel(group)
-                        }
-                        .buttonStyle(ChoiceButtonStyle(selected: selected?.id == group.id))
-                        .help(group.name + (group.enabled ? "" : " · hidden"))
-                        .accessibilityAddTraits(selected?.id == group.id ? .isSelected : [])
-                        .highPriorityGesture(DragGesture(minimumDistance: 4, coordinateSpace: .named("group-order"))
-                            .onChanged { value in
-                                guard !settlingGroupDrag else { return }
-                                if groupDrag == nil {
-                                    groupDrag = GroupDragPreview(source: group.id, order: groups.map(\.id), frames: groupFrames,
-                                                                 location: value.location, translation: value.translation)
-                                } else {
-                                    groupDrag?.location = value.location
-                                    groupDrag?.translation = value.translation
-                                }
-                            }
-                            .onEnded { finishGroupDrag(at: $0.location) })
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: GroupFrames.self, value: [group.id: proxy.frame(in: .named("group-order"))])
-                        })
-                        .opacity(groupDrag?.source == group.id ? 0 : 1)
-                        .offset(groupDrag?.offset(for: group.id) ?? .zero)
-                        .animation(.snappy(duration: 0.18), value: groupDrag?.target)
-                    }
-                    Button {
-                        let group = MenuBarLayout(name: "Group \(groups.count + 1)")
-                        store.updateDisplay { $0.editLayouts { $0.append(group) } }
-                        store.selectMenuBarGroup(group.id)
-                    } label: { Label("Add Group", systemImage: "plus").frame(maxWidth: .infinity) }
-                        .buttonStyle(ChoiceButtonStyle(selected: false))
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Menu Bar Groups").font(.headline)
+                    Text("Each group is one item in the menu bar and shows up to three usage lines from any of your accounts. Select a group tab to edit it.")
+                        .font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .coordinateSpace(name: "group-order")
-                .onPreferenceChange(GroupFrames.self) { groupFrames = $0 }
-                .overlay(alignment: .topLeading) { groupDragOverlay.allowsHitTesting(false) }
-                .zIndex(groupDrag == nil ? 0 : 1)
-                if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
-                else { Text("Add a group, then add a line for each usage limit you want to see.").foregroundStyle(.secondary) }
-                Text("메뉴바의 뱃지나 위 그룹 버튼을 드래그해 순서를 바꿀 수 있습니다.")
+                MenuBarPreview(groups: groups, selectedID: selected?.id)
+                VStack(alignment: .leading, spacing: 0) {
+                    groupTabs
+                    if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
+                    else {
+                        Text("Add a group, then add a line for each usage limit you want to see.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+                Text("Drag group tabs, or the items in the menu bar, to reorder groups.")
                     .font(.caption).foregroundStyle(.secondary)
                 if store.displayWidthWarning { Text("These groups use a large portion of the menu bar.").font(.caption).foregroundStyle(.orange) }
-
             }.padding(20)
         }
         .onDisappear { groupDrag = nil; settlingGroupDrag = false }
+    }
+
+    // Groups are tabs sitting on the editor below, so the selected one reads as "this group".
+    private var groupTabs: some View {
+        HStack(spacing: 2) {
+            ForEach(groups) { group in
+                Button { store.selectMenuBarGroup(group.id) } label: {
+                    groupLabel(group)
+                }
+                .buttonStyle(GroupTabStyle(selected: selected?.id == group.id))
+                .help(group.name + (group.enabled ? "" : " · hidden"))
+                .accessibilityAddTraits(selected?.id == group.id ? .isSelected : [])
+                .highPriorityGesture(DragGesture(minimumDistance: 4, coordinateSpace: .named("group-order"))
+                    .onChanged { value in
+                        guard !settlingGroupDrag else { return }
+                        if groupDrag == nil {
+                            groupDrag = GroupDragPreview(source: group.id, order: groups.map(\.id), frames: groupFrames,
+                                                         location: value.location, translation: value.translation)
+                        } else {
+                            groupDrag?.location = value.location
+                            groupDrag?.translation = value.translation
+                        }
+                    }
+                    .onEnded { finishGroupDrag(at: $0.location) })
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: GroupFrames.self, value: [group.id: proxy.frame(in: .named("group-order"))])
+                })
+                .opacity(groupDrag?.source == group.id ? 0 : 1)
+                .offset(groupDrag?.offset(for: group.id) ?? .zero)
+                .animation(.snappy(duration: 0.18), value: groupDrag?.target)
+            }
+            Button {
+                let group = MenuBarLayout(name: "Group \(groups.count + 1)")
+                store.updateDisplay { $0.editLayouts { $0.append(group) } }
+                store.selectMenuBarGroup(group.id)
+            } label: { Image(systemName: "plus") }
+                .buttonStyle(GroupTabStyle(selected: false))
+                .help("Add Group")
+                .accessibilityLabel("Add Group")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .coordinateSpace(name: "group-order")
+        .onPreferenceChange(GroupFrames.self) { groupFrames = $0 }
+        .overlay(alignment: .topLeading) { groupDragOverlay.allowsHitTesting(false) }
+        .zIndex(groupDrag == nil ? 0 : 1)
     }
 
     private func groupLabel(_ group: MenuBarLayout) -> some View {
         HStack(spacing: 4) {
             if !group.enabled { Image(systemName: "eye.slash") }
             Text(group.name.isEmpty ? "Untitled" : group.name).lineLimit(1)
-        }.frame(maxWidth: .infinity)
+        }
     }
 
     @ViewBuilder private var groupDragOverlay: some View {
@@ -88,6 +109,7 @@ struct MenuBarSettingsView: View {
                 .offset(x: drag.placeholder.minX, y: drag.placeholder.minY)
                 .animation(.snappy(duration: 0.18), value: drag.target)
             groupLabel(group)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 8)
                 .frame(width: drag.floatingFrame.width, height: drag.floatingFrame.height)
                 .modifier(FloatingDragCard(settling: settlingGroupDrag))
@@ -154,33 +176,21 @@ private struct MenuBarGroupEditor: View {
                     .accessibilityAddTraits(group.style.selection == style ? .isSelected : [])
                 }
             }
-            HStack(spacing: 4) {
-                Text("Badges").font(.caption).foregroundStyle(.secondary)
-                ForEach(BadgeDisplayMode.selectableCases) { mode in
-                    Button {
-                        let color = group.rows.first.flatMap { store.menuBarEntry(for: $0.accountID)?.display.color } ?? .blue
-                        store.updateDisplay { $0.editLayout(group.id) { value in
-                            value.badgeMode = mode
-                            if mode.includesCommon, value.commonBadgeText == nil { value.commonBadgeText = String(value.name.prefix(24)) }
-                            if mode.includesCommon, value.commonBadgeColor == nil { value.commonBadgeColor = color }
-                        } }
-                    } label: { Text(mode.title).font(.caption).frame(maxWidth: .infinity) }
-                    .buttonStyle(ChoiceButtonStyle(selected: group.effectiveBadgeMode == mode))
-                    .accessibilityLabel("\(mode.title) badges")
-                    .accessibilityAddTraits(group.effectiveBadgeMode == mode ? .isSelected : [])
-                }
-            }
-            if group.effectiveBadgeMode.includesCommon {
-                HStack(spacing: 8) {
-                    Text("Common").font(.caption).foregroundStyle(.secondary)
-                    BadgeColorButton(title: "Common badge color", color: Binding(get: { group.commonBadgeColor ?? .blue }, set: { color in
-                        store.updateDisplay { $0.editLayout(group.id) { $0.commonBadgeColor = color } }
-                    }))
-                    TextField("Common badge", text: Binding(get: { group.commonBadgeLabel }, set: { text in
+            HStack(spacing: 8) {
+                Toggle("Label", isOn: Binding(get: { group.effectiveBadgeMode.includesCommon }, set: { on in
+                    store.updateDisplay { $0.editLayout(group.id) { value in
+                        value.badgeMode = on ? .common : BadgeDisplayMode.none
+                        if on, value.commonBadgeText == nil { value.commonBadgeText = String(value.name.prefix(24)) }
+                    } }
+                })).toggleStyle(.checkbox)
+                if group.effectiveBadgeMode.includesCommon {
+                    TextField("Label", text: Binding(get: { group.commonBadgeLabel }, set: { text in
                         store.updateDisplay { $0.editLayout(group.id) { $0.commonBadgeText = String(text.prefix(24)) } }
-                    })).textFieldStyle(.roundedBorder).frame(width: 112)
+                    })).textFieldStyle(.roundedBorder).labelsHidden().frame(width: 140)
                 }
+                Spacer(minLength: 0)
             }
+            .help("Text shown in front of this group in the menu bar.")
             HStack {
                 if group.style == .text {
                     Text(group.rows.count > MenuBarLayout.maximumLines
@@ -193,7 +203,11 @@ private struct MenuBarGroupEditor: View {
             }.toggleStyle(.checkbox)
             if !group.showsAnything { Text("All components are off. This group is hidden and its refresh is paused.").font(.caption).foregroundStyle(.secondary) }
             Divider()
-            Text(usageLinesTitle).font(.headline)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(usageLinesTitle).font(.headline)
+                Text(usageLinesHint).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             ForEach(0..<editorSlotCount, id: \.self) { slot in
                 VStack(spacing: 0) {
                 if let index = lineIndex(for: slot) {
@@ -221,7 +235,7 @@ private struct MenuBarGroupEditor: View {
                 .animation(.snappy(duration: 0.18), value: lineDrag?.target)
             }
             if store.orderedAccounts.isEmpty { Text("Add an account in the Accounts tab first.").font(.caption).foregroundStyle(.secondary) }
-        }.padding(14).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        }.padding(14).background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
         .coordinateSpace(name: group.id)
         .onPreferenceChange(SlotFrames.self) { slotFrames = $0 }
         .overlay(alignment: .topLeading) { lineDragOverlay.allowsHitTesting(false) }
@@ -240,6 +254,13 @@ private struct MenuBarGroupEditor: View {
         if group.style == .ring { return "Usage line" }
         if group.style == .text { return "Usage values · \(group.rows.count)" }
         return "Usage lines · \(group.rows.count)/\(MenuBarLayout.maximumLines)"
+    }
+    private var usageLinesHint: String {
+        switch group.style {
+        case .ring: return "Ring Gauge shows a single line. Choose Multi Bar or Capsule Fill for up to three lines, or Text Only for more."
+        case .text: return "Each value can come from any account. Click + to add another."
+        default: return "Each line shows one limit of one account; lines can come from different accounts. Click + in an empty slot to add a line."
+        }
     }
     private func lineIndex(for slot: Int) -> Int? {
         if group.style == .ring, let line = group.displayedRows.first {
@@ -491,26 +512,58 @@ private struct StyleSymbol: View {
     }
 }
 
-private struct BadgeColorButton: View {
-    let title: String
-    @Binding var color: AccountColor
-    @State private var presented = false
+private struct GroupTabStyle: ButtonStyle {
+    // Shared by the selected tab and the editor below so they read as one panel.
+    static let panelFill = Color.primary.opacity(0.05)
+    let selected: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.callout.weight(selected ? .semibold : .regular))
+            .foregroundStyle(selected ? Color.primary : Color.secondary)
+            .padding(.horizontal, 14)
+            .frame(height: 28)
+            .background(UnevenRoundedRectangle(topLeadingRadius: 7, topTrailingRadius: 7, style: .continuous)
+                .fill(selected ? Self.panelFill : Color.primary.opacity(configuration.isPressed ? 0.05 : 0)))
+            .contentShape(Rectangle())
+    }
+}
+
+// What the menu bar will show, drawn by the same renderer as the real status items.
+private struct MenuBarPreview: View {
+    @EnvironmentObject private var store: UsageStore
+    @Environment(\.colorScheme) private var colorScheme
+    let groups: [MenuBarLayout]
+    let selectedID: UUID?
+    private var shown: [MenuBarLayout] {
+        groups.filter { $0.enabled && $0.showsAnything && ($0.rows.isEmpty || !store.entries(for: $0).isEmpty) }
+    }
     var body: some View {
-        Button { presented = true } label: {
-            Circle().fill(color.color).frame(width: 18, height: 18)
-        }.buttonStyle(.plain).help(title).accessibilityLabel(title)
-        .popover(isPresented: $presented) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title).font(.caption)
-                HStack(spacing: 6) {
-                    ForEach(AccountColor.allCases) { option in
-                        Button { color = option; presented = false } label: {
-                            Circle().fill(option.color).frame(width: 22, height: 22)
-                                .overlay { if option == color { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white) } }
-                        }.buttonStyle(.plain).help(option.title).accessibilityLabel(option.title)
-                    }
+        HStack(spacing: 2) {
+            Text("Menu bar").font(.caption).foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            if shown.isEmpty {
+                Text("No groups shown").font(.caption).foregroundStyle(.tertiary)
+            }
+            ForEach(shown) { group in
+                Button { store.selectMenuBarGroup(group.id) } label: {
+                    Image(nsImage: image(for: group))
+                        .padding(.horizontal, 3).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(group.id == selectedID ? Color.primary.opacity(0.14) : .clear))
                 }
-            }.padding(12)
+                .buttonStyle(.plain)
+                .help(group.name)
+                .accessibilityLabel("Select \(group.name)")
+            }
         }
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(.bar, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+    }
+    private func image(for group: MenuBarLayout) -> NSImage {
+        DisplayStatusRenderer.render(entries: store.entries(for: group), config: group.renderingConfiguration(store.displayConfiguration),
+            height: 20, scale: 2, explicitRows: true,
+            appearance: NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua))
     }
 }
