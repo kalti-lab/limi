@@ -1,8 +1,19 @@
-# agent-bar
+# agent-bar-custom
 
-A local macOS menu bar app for monitoring **Codex and Claude Code subscription limits across multiple accounts**.
+Customized fork of [agent-bar](https://github.com/chenjingdev/agent-bar): a local macOS menu bar app for monitoring **Codex and Claude Code subscription limits across multiple accounts**.
 
-Download the app from [GitHub Releases](https://github.com/chenjingdev/agent-bar/releases/latest). The prebuilt app supports Apple Silicon Macs running macOS 14 or later. It is ad-hoc signed and is not notarized by Apple. Extract the ZIP and place `AgentBar.app` in Applications. The official provider CLIs are still required.
+This fork follows upstream (currently through v0.1.0 and later) and only changes the look and feel. Build it from source (see [Build and install](#build-and-install)); the prebuilt app on upstream's Releases page has the original UI.
+
+## Changes from Original
+
+- Popover attaches directly under the menu bar item with no arrow, on the system menu material, sized to its content (closes on outside click or Escape)
+- Popover uses native macOS system colors and semantic typography (`.headline`/`.subheadline`/`.callout`/`.caption`), native progress bars and dividers
+- Limit cards are distinguished by SF Symbols (clock for 5-hour, calendar for weekly, cpu for model weeklies) instead of color
+- Menu bar items drop the dark capsule background; text and tracks follow the light/dark menu bar appearance and re-render when it changes
+- Bars and rings use the deeper account color on light menu bars; Capsule Fill keeps a self-contained dark pill for legibility
+- Text Only shows a five-step gauge symbol (`gauge.with.dots.needle.X`) before each percentage
+
+Upstream's features (multiple accounts, groups, styles, drag reordering, Settings) are unchanged and documented below.
 
 ## Accounts and menu bar
 
@@ -106,3 +117,7 @@ AGENTBAR_LIVE_AUTH_PROBE=1 swift test --filter isolatedCodexLoginCancellation
 Real OAuth completion, multiple-account usage, and native UI interaction are separate manual acceptance checks. Passing unit tests or receiving an OAuth URL does not establish those results.
 
 See [validation coverage and manual acceptance limits](docs/validation/multi-account/README.md).
+
+## Credits
+
+Original project by [chenjingdev](https://github.com/chenjingdev/agent-bar). Upstream documentation above is kept as-is.
