@@ -453,7 +453,7 @@ struct ChoiceButtonStyle: ButtonStyle {
             .padding(.horizontal, 8).padding(.vertical, 8)
             .foregroundStyle(selected ? Color.accentColor : Color.primary)
             .background(selected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(configuration.isPressed ? 0.10 : 0.04), in: RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: selected ? 1.5 : 1))
+            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 7))
     }
 }
