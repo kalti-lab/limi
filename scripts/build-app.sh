@@ -43,6 +43,8 @@ mkdir -p "$bundle_path/Contents/MacOS"
 mkdir -p "$bundle_path/Contents/Resources"
 
 cp "$binary_path" "$bundle_path/Contents/MacOS/agent-bar"
+# App icon; regenerate with scripts/make-app-icon.swift.
+cp "$repo_dir/assets/AppIcon.icns" "$bundle_path/Contents/Resources/AppIcon.icns"
 
 cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -55,6 +57,8 @@ cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
   <string>AgentBar</string>
   <key>CFBundleExecutable</key>
   <string>agent-bar</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleIdentifier</key>
   <string>dev.chenjing.agent-bar</string>
   <key>CFBundleInfoDictionaryVersion</key>
