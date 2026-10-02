@@ -1,6 +1,6 @@
 import Foundation
 
-enum ProviderKind: String, CaseIterable, Hashable, Identifiable {
+enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendable {
     case claude
     case codex
 
@@ -34,37 +34,12 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable {
     }
 }
 
-enum WindowDisplayStyle: Equatable {
+enum WindowDisplayStyle: String, Equatable, Codable, Sendable {
     case tokens
     case percentage
 }
 
-struct UsageEvent: Identifiable, Hashable {
-    let id: String
-    let timestamp: Date
-    let model: String
-    let totalTokens: Int
-    let inputTokens: Int
-    let outputTokens: Int
-    let cachedTokens: Int
-    let sessionID: String?
-}
-
-struct SessionSummary: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let subtitle: String
-    let updatedAt: Date
-    let tokens: Int
-}
-
-struct ModelSummary: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let tokens: Int
-}
-
-struct WindowSummary: Equatable {
+struct WindowSummary: Equatable, Codable, Sendable {
     let tokens: Int
     let limitTokens: Int
     let resetAt: Date?
@@ -76,38 +51,75 @@ struct WindowSummary: Equatable {
     }
 }
 
-struct ProviderSnapshot: Equatable {
+struct ModelWeeklySummary: Equatable, Codable, Sendable {
+    let label: String
+    let window: WindowSummary
+
+    var isFable: Bool {
+        label.localizedCaseInsensitiveContains("fable")
+    }
+
+    static let unavailableFable = ModelWeeklySummary(
+        label: "Fable",
+        window: WindowSummary(tokens: 0, limitTokens: 0, resetAt: nil, displayStyle: .percentage)
+    )
+}
+
+struct ProviderSnapshot: Equatable, Codable, Sendable {
     let provider: ProviderKind
     let updatedAt: Date
-    let fiveHour: WindowSummary
-    let weekly: WindowSummary
+    let fiveHour: WindowSummary?
+    let weekly: WindowSummary?
+    let modelWeeklies: [ModelWeeklySummary]
     let planName: String?
-    let todayTokens: Int
-    let monthTokens: Int
-    let recentSessions: [SessionSummary]
-    let modelBreakdown: [ModelSummary]
     let sourceDescription: String
     let note: String?
     let isStale: Bool
+    let requiresLogin: Bool
+    var retryAt: Date? = nil
 
-    var topModelName: String {
-        modelBreakdown.first?.name ?? "n/a"
+    var displayedModelWeeklies: [ModelWeeklySummary] {
+        guard provider == .claude else { return modelWeeklies }
+
+        guard let fableIndex = modelWeeklies.firstIndex(where: \.isFable) else {
+            return [.unavailableFable] + modelWeeklies
+        }
+
+        guard fableIndex != modelWeeklies.startIndex else {
+            return modelWeeklies
+        }
+
+        var orderedWeeklies = modelWeeklies
+        let fableWeekly = orderedWeeklies.remove(at: fableIndex)
+        orderedWeeklies.insert(fableWeekly, at: orderedWeeklies.startIndex)
+        return orderedWeeklies
+    }
+
+    var primaryWindow: WindowSummary? {
+        fiveHour ?? weekly
     }
 
     static func placeholder(for provider: ProviderKind) -> ProviderSnapshot {
         ProviderSnapshot(
             provider: provider,
             updatedAt: .now,
-            fiveHour: WindowSummary(tokens: 0, limitTokens: 100, resetAt: nil, displayStyle: .percentage),
-            weekly: WindowSummary(tokens: 0, limitTokens: 100, resetAt: nil, displayStyle: .percentage),
+            fiveHour: WindowSummary(tokens: 0, limitTokens: 0, resetAt: nil, displayStyle: .percentage),
+            weekly: WindowSummary(tokens: 0, limitTokens: 0, resetAt: nil, displayStyle: .percentage),
+            modelWeeklies: [],
             planName: nil,
-            todayTokens: 0,
-            monthTokens: 0,
-            recentSessions: [],
-            modelBreakdown: [],
             sourceDescription: provider.sourceDescription,
             note: "Account usage has not loaded yet.",
-            isStale: true
+            isStale: true,
+            requiresLogin: false
         )
+    }
+}
+
+
+extension ProviderSnapshot {
+    func failed(_ message: String, requiresLogin: Bool = false) -> Self {
+        Self(provider: provider, updatedAt: updatedAt, fiveHour: fiveHour, weekly: weekly,
+             modelWeeklies: modelWeeklies, planName: planName, sourceDescription: sourceDescription,
+             note: message, isStale: true, requiresLogin: requiresLogin)
     }
 }

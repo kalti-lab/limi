@@ -1,5 +1,6 @@
 .build
 AgentBar.app
+.omx/
 .DS_Store
 .swiftpm/
 build/

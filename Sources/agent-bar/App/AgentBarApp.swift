@@ -1,36 +1,40 @@
 import AppKit
 import SwiftUI
 
-@main
-struct AgentBarApp: App {
-    @StateObject private var store = AppContainer.shared.store
-    @StateObject private var settings = AppContainer.shared.settings
+final class AgentBarAppDelegate: NSObject, NSApplicationDelegate {
+    private var coordinator: StatusBarCoordinator?
 
-    private let availableProviders = AppContainer.shared.availableProviders
-
-    init() {
-        NSApplication.shared.setActivationPolicy(.accessory)
+    func applicationWillTerminate(_ notification: Notification) {
+        AppContainer.shared.store.shutdown()
+        ProcessSession.stopAll()
     }
 
-    var body: some Scene {
-        MenuBarExtra(isInserted: .constant(availableProviders.contains(.claude))) {
-            ProviderPopoverView(provider: .claude)
-                .environmentObject(store)
-                .environmentObject(settings)
-        } label: {
-            MenuBarLabelView(provider: .claude)
-                .environmentObject(store)
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApplication.shared.setActivationPolicy(.accessory)
+        coordinator = StatusBarCoordinator(
+            store: AppContainer.shared.store,
+            providers: AppContainer.shared.availableProviders
+        )
+        if AppContainer.shared.settings.consumeDisplaySetupNotice() || !AppContainer.shared.store.accounts.contains(where: { $0.isManaged }) {
+            SettingsWindowController.shared.show(tab: .accounts)
         }
-        .menuBarExtraStyle(.window)
+    }
 
-        MenuBarExtra(isInserted: .constant(availableProviders.contains(.codex))) {
-            ProviderPopoverView(provider: .codex)
-                .environmentObject(store)
-                .environmentObject(settings)
-        } label: {
-            MenuBarLabelView(provider: .codex)
-                .environmentObject(store)
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        SettingsWindowController.shared.show(tab: .accounts)
+        return true
+    }
+}
+
+@main
+struct AgentBarApp: App {
+    @NSApplicationDelegateAdaptor(AgentBarAppDelegate.self) private var appDelegate
+
+    var body: some Scene {
+        Settings {
+            SettingsView()
+                .environmentObject(AppContainer.shared.settings)
+                .environmentObject(AppContainer.shared.store)
         }
-        .menuBarExtraStyle(.window)
     }
 }
