@@ -168,13 +168,33 @@ enum ProviderCLI {
             directory: directory)
         defer { session.stop() }
         let data = try session.collect(until: Date().addingTimeInterval(20), control: control)
+        return try claudeIdentity(status: data, directory: directory)
+    }
+    static func claudeIdentity(status data: Data, directory: URL) throws -> AccountIdentity {
         guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               payload["loggedIn"] as? Bool == true,
               payload["authMethod"] as? String == "claude.ai" else { throw AccountError.loginRequired }
-        return AccountIdentity(email: payload["email"] as? String,
-                               organization: payload["orgName"] as? String,
-                               organizationID: payload["orgId"] as? String,
-                               stableID: payload["accountId"] as? String)
+        var identity = AccountIdentity(email: payload["email"] as? String,
+                                       organization: payload["orgName"] as? String,
+                                       organizationID: payload["orgId"] as? String,
+                                       stableID: payload["accountId"] as? String)
+        // Claude Code 2.1 no longer reports accountId here. The same login
+        // records it in the account's own config file.
+        if identity.stableID == nil, let local = try? claudeLocalIdentity(directory: directory),
+           local.comparison(to: identity) != .different {
+            identity.stableID = local.stableID
+        }
+        return identity
+    }
+    /// The signed-in account recorded in the CLI's config file.
+    static func claudeLocalIdentity(directory: URL) throws -> AccountIdentity {
+        let legacy = directory.appendingPathComponent(".config.json")
+        let path = FileManager.default.fileExists(atPath: legacy.path) ? legacy : directory.appendingPathComponent(".claude.json")
+        guard let object = try JSONSerialization.jsonObject(with: Data(contentsOf: path)) as? [String: Any],
+              let account = object["oauthAccount"] as? [String: Any] else { throw AccountError.loginRequired }
+        return AccountIdentity(email: account["emailAddress"] as? String,
+            organization: account["organizationName"] as? String, organizationID: account["organizationUuid"] as? String,
+            stableID: account["accountUuid"] as? String)
     }
 }
 

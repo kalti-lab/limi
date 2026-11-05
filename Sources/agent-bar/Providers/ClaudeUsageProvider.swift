@@ -15,13 +15,7 @@ struct ClaudeUsageProvider: UsageProviding {
     var control = OperationControl()
     var statusReader: @Sendable (URL, OperationControl) throws -> AccountIdentity = {
         try $1.checkCancellation()
-        let legacy = $0.appendingPathComponent(".config.json")
-        let path = FileManager.default.fileExists(atPath: legacy.path) ? legacy : $0.appendingPathComponent(".claude.json")
-        guard let object = try JSONSerialization.jsonObject(with: Data(contentsOf: path)) as? [String: Any],
-              let account = object["oauthAccount"] as? [String: Any] else { throw AccountError.loginRequired }
-        return AccountIdentity(email: account["emailAddress"] as? String,
-            organization: account["organizationName"] as? String, organizationID: account["organizationUuid"] as? String,
-            stableID: account["accountUuid"] as? String)
+        return try ProviderCLI.claudeLocalIdentity(directory: $0)
     }
     var keychainReader: @Sendable (String, String?) throws -> Data? = {
         try BackgroundKeychain.read(service: $0, account: $1)

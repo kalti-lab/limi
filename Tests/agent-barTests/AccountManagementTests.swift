@@ -133,6 +133,62 @@ struct AccountManagementTests {
         let stable = AccountIdentity(email: "a@example.test", organizationID: "one", stableID: "user-1")
         #expect(stable.comparison(to: stable) == .same)
     }
+    @Test func claudeSignInUsesOnlyTheAccountIDItsOwnLoginRecorded() throws {
+        let files = try temporaryFiles(); defer { try? FileManager.default.removeItem(at: files.root) }
+        try claudeConfig(in: files.root, email: "a@example.test", accountID: "user-1")
+        let status = #"{"loggedIn":true,"authMethod":"claude.ai","email":"a@example.test","orgId":"org-1","orgName":"Org"}"#
+        #expect(try ProviderCLI.claudeIdentity(status: Data(status.utf8), directory: files.root).stableID == "user-1")
+        let other = #"{"loggedIn":true,"authMethod":"claude.ai","email":"b@example.test","orgId":"org-1"}"#
+        #expect(try ProviderCLI.claudeIdentity(status: Data(other.utf8), directory: files.root).stableID == nil)
+        let reported = #"{"loggedIn":true,"authMethod":"claude.ai","email":"a@example.test","orgId":"org-1","accountId":"cli-id"}"#
+        #expect(try ProviderCLI.claudeIdentity(status: Data(reported.utf8), directory: files.root).stableID == "cli-id")
+        #expect(throws: AccountError.self) {
+            try ProviderCLI.claudeIdentity(status: Data(#"{"loggedIn":false}"#.utf8), directory: files.root)
+        }
+    }
+    @Test @MainActor func verifiedReconnectNeedsNoReviewAndOlderAccountsLearnTheirID() throws {
+        let files = try temporaryFiles(); defer { try? FileManager.default.removeItem(at: files.root) }
+        let identity = AccountIdentity(email: "a@example.test", organizationID: "org-1")
+        let verified = UsageAccount(id: UUID(), provider: .claude, name: "Work", identity: identity, credentialID: UUID())
+        let unverified = UsageAccount(id: UUID(), provider: .claude, name: "Home",
+            identity: AccountIdentity(email: "c@example.test", organizationID: "org-2"), credentialID: UUID())
+        let candidates = [UsageAccount(id: UUID(), provider: .claude, name: "New", credentialID: UUID()),
+                          UsageAccount(id: UUID(), provider: .claude, name: "New", credentialID: UUID())]
+        try claudeConfig(in: files.credentials(verified.credentialID!), email: "a@example.test", accountID: "user-1")
+        try claudeConfig(in: files.credentials(unverified.credentialID!), email: "c@example.test", organizationID: "org-2", accountID: nil)
+        try claudeConfig(in: files.credentials(candidates[0].credentialID!), email: "a@example.test", accountID: "user-1")
+        try claudeConfig(in: files.credentials(candidates[1].credentialID!), email: "c@example.test", organizationID: "org-2", accountID: nil)
+        var registry = AccountRegistry(accounts: [verified, unverified]); registry.cleanupPending = candidates
+        registry.repairRepresentatives()
+        try files.write(registry, to: files.registryURL)
+        let suite = "agentbar-reconnect-\(UUID())", defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: files, autoRefresh: false,
+            loadAccount: { account, _ in .placeholder(for: account.provider) })
+        defer { store.shutdown() }
+        #expect(store.accounts.map { $0.identity?.stableID } == ["user-1", nil])
+        #expect(try files.load().accounts.first?.identity?.stableID == "user-1")
+
+        func signedIn(_ candidate: UsageAccount, email: String, organizationID: String) throws -> UsageAccount {
+            var account = candidate
+            let status = #"{"loggedIn":true,"authMethod":"claude.ai","email":"\#(email)","orgId":"\#(organizationID)"}"#
+            account.identity = try ProviderCLI.claudeIdentity(status: Data(status.utf8), directory: files.credentials(candidate.credentialID!))
+            return account
+        }
+        store.presentCompletedLogin(try signedIn(candidates[0], email: "a@example.test", organizationID: "org-1"), replacing: verified.id)
+        #expect(store.pendingLogin == nil)
+        #expect(store.accounts.first { $0.id == verified.id }?.credentialID == candidates[0].credentialID)
+        // Without a recorded ID the signed-in account still waits for review.
+        store.presentCompletedLogin(try signedIn(candidates[1], email: "c@example.test", organizationID: "org-2"), replacing: unverified.id)
+        #expect(store.pendingLogin?.account.credentialID == candidates[1].credentialID)
+        #expect(store.accounts.first { $0.id == unverified.id }?.credentialID == unverified.credentialID)
+    }
+    private func claudeConfig(in directory: URL, email: String, organizationID: String = "org-1", accountID: String?) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var account: [String: Any] = ["emailAddress": email, "organizationUuid": organizationID]
+        account["accountUuid"] = accountID
+        try JSONSerialization.data(withJSONObject: ["oauthAccount": account]).write(to: directory.appendingPathComponent(".claude.json"))
+    }
     @Test func accountPathsAndCredentialRotationsAreIsolated() throws {
         let files = try temporaryFiles(); defer { try? FileManager.default.removeItem(at: files.root) }
         let a = UsageAccount(id: UUID(), provider: .claude, name: "A", credentialID: UUID())

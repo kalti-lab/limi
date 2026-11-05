@@ -130,6 +130,18 @@ struct AccountFiles: Sendable {
         }
         if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
     }
+    // Claude accounts linked while the CLI status omitted the account ID could
+    // never be matched on reconnect. Their login recorded it in the config file.
+    func recordMissingClaudeAccountIDs(in registry: inout AccountRegistry) {
+        for index in registry.accounts.indices {
+            let account = registry.accounts[index]
+            guard account.provider == .claude, let id = account.credentialID,
+                  let identity = account.identity, identity.stableID == nil,
+                  let local = try? ProviderCLI.claudeLocalIdentity(directory: credentials(id)),
+                  local.stableID != nil, local.comparison(to: identity) != .different else { continue }
+            registry.accounts[index].identity?.stableID = local.stableID
+        }
+    }
     func removeUsage(_ account: UsageAccount) throws {
         let directory = root.appendingPathComponent("usage/\(account.id.uuidString)")
         if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }

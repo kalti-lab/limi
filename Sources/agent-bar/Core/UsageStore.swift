@@ -56,6 +56,7 @@ final class UsageStore: ObservableObject {
         do {
             var loaded = try files.load()
             loaded.repairRepresentatives()
+            files.recordMissingClaudeAccountIDs(in: &loaded)
             try files.write(loaded, to: files.registryURL)
             registry = loaded
             // Legacy rows without an AgentBar credential stay in their existing
@@ -369,8 +370,7 @@ final class UsageStore: ObservableObject {
             if !control.cancelled, case .success(let identity) = result {
                 var completed = candidate; completed.identity = identity
                 completed.name = identity.email ?? "\(provider.displayName) account"
-                pendingLogin = PendingAccountLogin(account: completed, replacing: replacing?.id)
-                loginMessage = "Review the signed-in account, then register it."
+                presentCompletedLogin(completed, replacing: replacing?.id)
             } else {
                 loginMessage = nil
                 if !control.cancelled, case .failure(let error) = result { errorMessage = error.localizedDescription }
@@ -397,6 +397,13 @@ final class UsageStore: ObservableObject {
             self?.errorMessage = message
             self?.canOpenPrivateLogin = false
         }, cancelled: { [weak self] in self?.cancelLogin() })
+    }
+
+    func presentCompletedLogin(_ account: UsageAccount, replacing: UUID?) {
+        pendingLogin = PendingAccountLogin(account: account, replacing: replacing)
+        loginMessage = "Review the signed-in account, then register it."
+        // Reconnecting an account proven to be the same leaves nothing to review.
+        if reconnectionComparison == .same { confirmLogin() }
     }
 
     func openPrivateLogin() {
