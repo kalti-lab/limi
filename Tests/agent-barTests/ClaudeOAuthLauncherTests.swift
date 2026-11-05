@@ -19,6 +19,18 @@ struct ClaudeOAuthLauncherTests {
         try ClaudeOAuthLauncher.saveLoginCredential(directory: directory) { _, _ in Issue.record("Existing credential must avoid another prompt"); return nil }
     }
 
+    @Test func loginCredentialIsReadThroughTheSecurityToolLikeTheCLI() throws {
+        var received: [String] = []
+        let data = try BackgroundKeychain.readForLogin(service: "fixture-service", account: "fixture-user") { arguments in
+            received = arguments
+            return (0, Data("{\"claudeAiOauth\":{}}\n".utf8))
+        }
+        #expect(received == ["find-generic-password", "-a", "fixture-user", "-w", "-s", "fixture-service"])
+        #expect(data == Data("{\"claudeAiOauth\":{}}".utf8))
+        // security exits 44 when the item is missing.
+        #expect(try BackgroundKeychain.readForLogin(service: "fixture-service", account: "fixture-user") { _ in (44, Data()) } == nil)
+    }
+
     @Test func missingCredentialDoesNotReportSuccessfulLogin() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("agentbar-login-missing-\(UUID())")
         #expect(throws: AccountError.self) {

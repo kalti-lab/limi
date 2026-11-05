@@ -77,7 +77,7 @@ enum ClaudeOAuthLauncher {
         }
         let service = AccountFiles.claudeService(directory)
         guard let data = try readKeychain(service, NSUserName()), usable(data) else {
-            throw AccountError.message("Claude signed in, but its credential could not be saved. Reconnect and allow Keychain access when prompted.")
+            throw AccountError.message("Claude signed in, but AgentBar could not read its saved credential. Reconnect to try again.")
         }
         try data.write(to: file, options: [.atomic, .completeFileProtectionUnlessOpen])
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)

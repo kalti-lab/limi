@@ -51,10 +51,25 @@ enum BackgroundKeychain {
 
     /// Only called while completing an explicit account connection. Once copied
     /// into that account's private file, polling needs no Keychain authorization.
-    static func readForLogin(service: String, account: String?) throws -> Data? {
-        var query = query(service: service, account: account, secret: true)
-        query.removeValue(forKey: kSecUseAuthenticationUI as String)
-        return try withInteraction(true) { try read(query: query) }
+    /// Claude Code writes this item through /usr/bin/security, so its ACL trusts
+    /// only that tool: reading it in this ad-hoc-signed process always asks, and
+    /// macOS cannot remember the answer. Read it the way the CLI does instead.
+    static func readForLogin(service: String, account: String?,
+        run: ([String]) throws -> (status: Int32, output: Data) = runSecurityTool) throws -> Data? {
+        let result = try run(["find-generic-password"] + (account.map { ["-a", $0] } ?? []) + ["-w", "-s", service])
+        guard result.status == 0 else { return nil }
+        // -w prints the secret followed by one newline.
+        var output = result.output
+        if output.last == 0x0a { output.removeLast() }
+        return output
+    }
+
+    static func runSecurityTool(_ arguments: [String]) throws -> (status: Int32, output: Data) {
+        let process = try ProcessSession(executable: URL(fileURLWithPath: "/usr/bin/security"), arguments: arguments,
+            environment: ["PATH": "/usr/bin:/bin"], directory: FileManager.default.temporaryDirectory)
+        defer { process.stop() }
+        let output = try process.collect(until: Date().addingTimeInterval(15), control: OperationControl())
+        return (process.exitStatus, output)
     }
 
     private static func read(query: [String: Any]) throws -> Data? {
