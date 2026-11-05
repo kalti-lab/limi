@@ -1,15 +1,18 @@
 import AppKit
+import Combine
 import SwiftUI
 
 // A menu-style window attached directly under a status item, like
 // MenuBarExtra(.window): no popover arrow, system menu material, closes on
-// outside click or Escape, and follows the SwiftUI content's size.
+// outside click, Escape, or when Settings takes focus, and follows the
+// SwiftUI content's size.
 @MainActor
 final class MenuBarPanel<Content: View> {
     private let panel: KeyablePanel
     private let host: ResizingHostingView<Content>
     private weak var anchor: NSStatusBarButton?
     private var monitors: [Any] = []
+    private var keyWindowChange: AnyCancellable?
 
     var rootView: Content {
         get { host.rootView }
@@ -91,11 +94,19 @@ final class MenuBarPanel<Content: View> {
             if event.window !== panel && event.window !== anchor?.window { close() }
             return event
         }) { monitors.append(local) }
+        // Settings opened from the panel (gear, Accounts…) becomes key without
+        // a click in its window, so close on that too instead of floating above it.
+        keyWindowChange = NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
+            .receive(on: RunLoop.main).sink { [weak self] notification in
+                guard let self, let window = notification.object as? NSWindow else { return }
+                if window !== panel && window !== anchor?.window { close() }
+            }
     }
 
     private func stopMonitoring() {
         monitors.forEach(NSEvent.removeMonitor)
         monitors.removeAll()
+        keyWindowChange = nil
     }
 }
 
