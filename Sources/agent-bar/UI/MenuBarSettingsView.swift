@@ -197,20 +197,6 @@ private struct MenuBarGroupEditor: View {
                     .accessibilityAddTraits(group.style.selection == style ? .isSelected : [])
                 }
             }
-            // The one place a group's percentage is chosen. Capsule Fill and Text
-            // Only always show theirs.
-            if group.style == .bars && !group.displayedRows.isEmpty {
-                Picker("Percentage", selection: Binding(get: { group.shownPercentageLineID }, set: { id in
-                    store.updateDisplay { $0.editLayout(group.id) { $0.showPercentage(of: id) } }
-                })) {
-                    Text("Hidden").tag(String?.none)
-                    ForEach(percentageChoices, id: \.id) { choice in Text(choice.title).tag(Optional(choice.id)) }
-                }
-                .fixedSize()
-                .help("The line whose percentage appears beside the bars.")
-            } else if group.style == .ring {
-                Toggle("Percentage", isOn: binding(\.showPercent)).toggleStyle(.checkbox)
-            }
             if group.style == .text && group.rows.count > MenuBarLayout.maximumLines {
                 Text("Remove values until three remain to switch styles.").font(.caption).foregroundStyle(.secondary)
             }
@@ -260,6 +246,22 @@ private struct MenuBarGroupEditor: View {
                 .opacity(lineDrag?.source == slot ? 0 : 1)
                 .offset(lineDrag?.offset(for: slot) ?? .zero)
                 .animation(.snappy(duration: 0.18), value: lineDrag?.target)
+            }
+            // The one place a group's percentage is chosen, under the lines it
+            // picks from: the menu names them as they read now and follows a
+            // line through edits and drags. Capsule Fill and Text Only always
+            // show theirs.
+            if group.style == .bars && !group.displayedRows.isEmpty {
+                Picker("Percentage", selection: Binding(get: { group.shownPercentageLineID }, set: { id in
+                    store.updateDisplay { $0.editLayout(group.id) { $0.showPercentage(of: id) } }
+                })) {
+                    Text("Hidden").tag(String?.none)
+                    ForEach(percentageChoices, id: \.id) { choice in Text(choice.title).tag(Optional(choice.id)) }
+                }
+                .fixedSize()
+                .help("The line whose percentage appears beside the bars.")
+            } else if group.style == .ring && !group.rows.isEmpty {
+                Toggle("Percentage", isOn: binding(\.showPercent)).toggleStyle(.checkbox)
             }
             if store.orderedAccounts.isEmpty { Text("Add an account in the Accounts tab first.").font(.caption).foregroundStyle(.secondary) }
         }.padding(14).background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
