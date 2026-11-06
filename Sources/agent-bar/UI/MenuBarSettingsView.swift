@@ -20,37 +20,37 @@ struct MenuBarSettingsView: View {
     @State private var groupFrames: [UUID: CGRect] = [:]
     private var groups: [MenuBarLayout] { store.displayConfiguration.effectiveLayouts }
     private var selected: MenuBarLayout? { groups.first { $0.id == store.selectedMenuBarGroupID } ?? groups.first }
+    // Settings scrolls and pads every tab, so this is only the content.
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Guidance for a first setup; once lines exist the editor speaks for itself.
-                if groups.allSatisfy({ $0.rows.isEmpty }) {
-                    Text("Each group is one item in the menu bar and shows up to three usage lines from any of your accounts. Select a group tab to edit it.")
-                        .font(.callout).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                // Titled blocks: what the menu bar will look like, then the groups
-                // that make it up, each tab one menu bar item.
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Menu bar preview").font(.headline)
-                    MenuBarPreview(groups: groups, selectedID: selected?.id)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Groups").font(.headline)
-                    VStack(alignment: .leading, spacing: 0) {
-                        groupTabs
-                        if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
-                        else {
-                            Text("Add a group, then add a line for each usage limit you want to see.")
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(14)
-                                .background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
-                        }
+        VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
+            // Guidance for a first setup; once lines exist the editor speaks for itself.
+            if groups.allSatisfy({ $0.rows.isEmpty }) {
+                Text("Each group is one item in the menu bar and shows up to three usage lines from any of your accounts. Select a group tab to edit it.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            // Titled blocks like the other tabs' sections: what the menu bar will
+            // look like, then the groups that make it up, each tab one item.
+            VStack(alignment: .leading, spacing: 6) {
+                SettingsSectionTitle("Menu bar preview")
+                MenuBarPreview(groups: groups, selectedID: selected?.id)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                SettingsSectionTitle("Groups")
+                VStack(alignment: .leading, spacing: 0) {
+                    groupTabs
+                    if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
+                    else {
+                        Text("Add a group, then add a line for each usage limit you want to see.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(SettingsStyle.sectionFill,
+                                        in: RoundedRectangle(cornerRadius: SettingsStyle.cornerRadius, style: .continuous))
                     }
                 }
-                if store.displayWidthWarning { Text("These groups use a large portion of the menu bar.").font(.caption).foregroundStyle(.orange) }
-            }.padding(20)
+            }
+            if store.displayWidthWarning { Text("These groups use a large portion of the menu bar.").font(.caption).foregroundStyle(.orange) }
         }
         .onDisappear { groupDrag = nil; settlingGroupDrag = false }
     }
@@ -231,7 +231,6 @@ private struct MenuBarGroupEditor: View {
                         Image(systemName: "plus").font(.system(size: 20, weight: .medium))
                             .foregroundStyle(Color.secondary)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 8))
                             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
                             .contentShape(RoundedRectangle(cornerRadius: 8))
                     }.buttonStyle(.plain)
@@ -264,7 +263,8 @@ private struct MenuBarGroupEditor: View {
                 Toggle("Percentage", isOn: binding(\.showPercent)).toggleStyle(.checkbox)
             }
             if store.orderedAccounts.isEmpty { Text("Add an account in the Accounts tab first.").font(.caption).foregroundStyle(.secondary) }
-        }.padding(14).background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
+        }.padding(14).background(SettingsStyle.sectionFill,
+                                 in: RoundedRectangle(cornerRadius: SettingsStyle.cornerRadius, style: .continuous))
         .coordinateSpace(name: group.id)
         .onPreferenceChange(SlotFrames.self) { slotFrames = $0 }
         .overlay(alignment: .topLeading) { lineDragOverlay.allowsHitTesting(false) }
@@ -473,7 +473,7 @@ private struct MenuBarLineEditor: View {
                 .buttonStyle(.plain)
                 .help("Remove this usage line")
                 .accessibilityLabel("Remove Line")
-        }.padding(8).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 6))
+        }.padding(8)
 
     }
     private var limitChoices: [DisplayMetric] {
@@ -579,7 +579,7 @@ private struct StyleSymbol: View {
 
 private struct GroupTabStyle: ButtonStyle {
     // Shared by the selected tab and the editor below so they read as one panel.
-    static let panelFill = Color.primary.opacity(0.05)
+    static let panelFill = SettingsStyle.sectionFill
     let selected: Bool
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

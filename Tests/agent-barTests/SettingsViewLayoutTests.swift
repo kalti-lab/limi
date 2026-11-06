@@ -6,8 +6,8 @@ import Testing
 
 @MainActor
 struct SettingsViewLayoutTests {
-    @Test("Settings view stays within its bounded height")
-    func settingsViewHeightIsBounded() {
+    @Test("Settings fits each tab and stops at its maximum")
+    func settingsFitsEachTabUpToItsMaximum() {
         let identifier = "SettingsViewLayoutTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: identifier)!
         defaults.removePersistentDomain(forName: identifier)
@@ -16,15 +16,21 @@ struct SettingsViewLayoutTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root); defaults.removePersistentDomain(forName: identifier) }
         let store = UsageStore(settings: settings, files: AccountFiles(root: root), autoRefresh: false)
-        let view = SettingsView()
-            .environmentObject(settings)
-            .environmentObject(store)
-        let hostingView = NSHostingView(rootView: view)
-        let size = hostingView.fittingSize
+        // Measured off screen; nothing is shown.
+        func size(_ tab: SettingsTab, maximum: CGFloat = 700) -> CGSize {
+            NSHostingView(rootView: SettingsView(tab: tab, maxContentHeight: maximum)
+                .environmentObject(settings)
+                .environmentObject(store)).fittingSize
+        }
 
-        #expect(size.width == 540)
-        #expect(size.height >= 320)
-        #expect(size.height <= 700)
+        let accounts = size(.accounts)
+        #expect(accounts.width == 540)
+        // No accounts: a short window instead of the old fixed 660.
+        #expect(accounts.height < 320)
+        let general = size(.general)
+        #expect(general.height > accounts.height && general.height <= 700 + 60)
+        // Content taller than its room scrolls; the window does not grow past it.
+        #expect(size(.general, maximum: 100).height <= 100 + 60)
     }
 }
 

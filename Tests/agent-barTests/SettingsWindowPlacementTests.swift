@@ -18,6 +18,13 @@ struct SettingsWindowPlacementTests {
     }
 
     @Test
+    func aTabMayGrowToTheDisplayLessTheWindowsOwnParts() {
+        // The built-in display's free height; a tab past this scrolls instead.
+        #expect(SettingsWindowController.maxContentHeight(in: NSRect(x: -1728, y: 0, width: 1728, height: 1085)) == 925)
+        #expect(SettingsWindowController.maxContentHeight(in: NSRect(x: 0, y: 0, width: 800, height: 400)) == 300)
+    }
+
+    @Test
     func keepsTheTitleBarReachableOnAnAreaSmallerThanTheWindow() {
         let origin = SettingsWindowController.centeredOrigin(of: NSSize(width: 540, height: 692),
                                                              in: NSRect(x: 0, y: 0, width: 500, height: 600))

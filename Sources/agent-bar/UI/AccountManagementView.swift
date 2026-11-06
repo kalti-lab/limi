@@ -18,37 +18,41 @@ struct AccountManagementView: View {
     @State private var settlingAccountDrag = false
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let error = store.errorMessage {
-                VStack(alignment: .leading) {
-                    Text(error).foregroundStyle(.red).textSelection(.enabled)
-                    Button("Dismiss") { store.errorMessage = nil }
-                }
-            }
+            // Errors show in the banner at the top of Settings.
             if store.isLoggingIn || store.pendingLogin != nil { LoginProgressView() }
 
-            VStack(spacing: 12) {
-                ForEach(store.orderedAccounts) { account in
-                    row(account)
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: AccountFrames.self, value: [account.id: proxy.frame(in: .named("account-order"))])
-                        })
-                        .opacity(accountDrag?.source == account.id ? 0 : 1)
-                        .offset(accountDrag?.offset(for: account.id) ?? .zero)
-                        .animation(.snappy(duration: 0.18), value: accountDrag?.target)
+            // One section holds every account, split by dividers like the
+            // system's account lists, instead of separate white cards.
+            SettingsSection {
+                if store.orderedAccounts.isEmpty {
+                    SettingsRow {
+                        Text("No accounts yet. Add one to see its usage in the menu bar.").foregroundStyle(.secondary)
+                    }
                 }
+                VStack(spacing: 0) {
+                    ForEach(Array(store.orderedAccounts.enumerated()), id: \.element.id) { index, account in
+                        SettingsRow(divided: index > 0) { row(account) }
+                            .background(GeometryReader { proxy in
+                                Color.clear.preference(key: AccountFrames.self, value: [account.id: proxy.frame(in: .named("account-order"))])
+                            })
+                            .opacity(accountDrag?.source == account.id ? 0 : 1)
+                            .offset(accountDrag?.offset(for: account.id) ?? .zero)
+                            .animation(.snappy(duration: 0.18), value: accountDrag?.target)
+                    }
+                }
+                .coordinateSpace(name: "account-order")
+                .onPreferenceChange(AccountFrames.self) { accountFrames = $0 }
+                .overlay(alignment: .topLeading) { accountDragOverlay.allowsHitTesting(false) }
+                .zIndex(accountDrag == nil ? 0 : 1)
             }
-            .coordinateSpace(name: "account-order")
-            .onPreferenceChange(AccountFrames.self) { accountFrames = $0 }
-            .overlay(alignment: .topLeading) { accountDragOverlay.allowsHitTesting(false) }
-            .zIndex(accountDrag == nil ? 0 : 1)
-            Button { choosingProvider = true } label: {
-                Label("Add Account", systemImage: "plus").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(ChoiceButtonStyle(selected: false))
-            .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
-            if (!store.registry.cleanupPending.isEmpty || store.accounts.contains(where: \.deletionPending))
-                && !store.isLoggingIn && store.pendingLogin == nil {
-                Button("Retry Pending Cleanup") { Task { await store.retryCleanup() } }
+            HStack {
+                if (!store.registry.cleanupPending.isEmpty || store.accounts.contains(where: \.deletionPending))
+                    && !store.isLoggingIn && store.pendingLogin == nil {
+                    Button("Retry Pending Cleanup") { Task { await store.retryCleanup() } }
+                }
+                Spacer()
+                Button("Add Account…") { choosingProvider = true }
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
             }
         }
         .onDisappear { accountDrag = nil; settlingAccountDrag = false }
@@ -117,9 +121,6 @@ struct AccountManagementView: View {
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .help("Account options")
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
     }
 
     /// Email and organization on one line. The provider shows in the mark.
@@ -135,7 +136,7 @@ struct AccountManagementView: View {
                 .frame(width: drag.placeholder.width, height: drag.placeholder.height)
                 .offset(x: drag.placeholder.minX, y: drag.placeholder.minY)
                 .animation(.snappy(duration: 0.18), value: drag.target)
-            row(account, preview: true)
+            SettingsRow { row(account, preview: true) }
                 .frame(width: drag.floatingFrame.width, height: drag.floatingFrame.height)
                 .modifier(FloatingDragCard(settling: settlingAccountDrag, liftScale: 1.02, cornerRadius: 10))
                 .offset(x: drag.floatingFrame.minX, y: drag.floatingFrame.minY)

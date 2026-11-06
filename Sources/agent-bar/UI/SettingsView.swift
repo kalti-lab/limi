@@ -18,74 +18,135 @@ struct SettingsView: View {
     @State private var restoring = false
     @State private var tab: SettingsTab
     @StateObject private var launchAtLogin = LaunchAtLogin()
-    init(tab: SettingsTab = .accounts) { _tab = State(initialValue: tab) }
+    /// The tallest a tab's content may grow before it scrolls; the window
+    /// controller fits it to the display Settings opens on.
+    private let maxContentHeight: CGFloat
+    init(tab: SettingsTab = .accounts, maxContentHeight: CGFloat = 700) {
+        _tab = State(initialValue: tab)
+        self.maxContentHeight = maxContentHeight
+    }
     var body: some View {
         VStack(spacing: 0) {
             Picker("Settings", selection: $tab) {
                 ForEach(SettingsTab.allCases) { Text($0.title).tag($0) }
             }.pickerStyle(.segmented).labelsHidden().padding(.horizontal, 20).padding(.top, 14)
-            switch tab {
-            case .accounts:
-                ScrollView { AccountManagementView().padding(20) }
-            case .menuBar:
-                MenuBarSettingsView()
-            case .general:
-                Form {
-                    Section("Refresh") {
-                        Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
-                            Text("1 minute").tag(60.0); Text("2 minutes").tag(120.0)
-                            Text("5 minutes").tag(300.0); Text("10 minutes").tag(600.0)
+            banners
+            // The window takes this height, so each tab gets the room it needs.
+            CappedHeight(maximum: maxContentHeight) {
+                ScrollView {
+                    Group {
+                        switch tab {
+                        case .accounts: AccountManagementView()
+                        case .menuBar: MenuBarSettingsView()
+                        case .general: general
                         }
-                        Text("Accounts used by a visible menu bar group refresh at this interval.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Section("Startup") {
-                        Toggle("Open at Login", isOn: Binding(get: { launchAtLogin.isOn }, set: { launchAtLogin.set($0) }))
-                        if launchAtLogin.needsApproval {
-                            HStack {
-                                Text("Allow AgentBar in Login Items to finish turning this on.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Open Login Items") { launchAtLogin.openLoginItems() }
-                            }
-                        }
-                        if let error = launchAtLogin.errorMessage {
-                            Text(error).font(.caption).foregroundStyle(.red)
-                        }
-                    }
-                    if store.hasOriginalDisplayConfiguration {
-                        Section("Recovery") {
-                            Button("Restore Original Groups…") { restoring = true }
-                            Text("Restore the saved layout from before the UX changes. The current layout is backed up first; account names and colors are kept.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    Section {
-                        LabeledContent("Version", value: Self.version)
-                    }
-                }.formStyle(.grouped)
-                .onAppear { launchAtLogin.refresh() }
-            }
-            if tab != .accounts {
-                if let error = store.errorMessage {
-                    HStack {
-                        Text(error).font(.caption).foregroundStyle(.red)
-                        Button("Dismiss") { store.errorMessage = nil }
-                    }.padding(10)
+                    }.padding(20)
                 }
             }
-            if let error = store.displayError {
-                Text(error).font(.caption).foregroundStyle(.orange).padding(10)
-            }
-        }.frame(width: 540, height: 660)
+        }
+        .frame(width: 540)
         .alert("Restore the original menu bar layout?", isPresented: $restoring) {
             Button("Cancel", role: .cancel) { }
             Button("Restore") { store.restoreOriginalDisplayConfiguration(); tab = .menuBar }
         } message: { Text("This restores the original groups, account order, selected limits and display options. Your current layout is saved as a backup first.") }
     }
 
+    // Errors and warnings for every tab in one place, under the tab picker.
+    @ViewBuilder private var banners: some View {
+        if let error = store.errorMessage {
+            SettingsBanner(symbol: "exclamationmark.triangle.fill", tint: .red, text: error) { store.errorMessage = nil }
+        }
+        if let warning = store.displayError {
+            SettingsBanner(symbol: "exclamationmark.circle.fill", tint: .orange, text: warning, dismiss: nil)
+        }
+    }
+
+    private var general: some View {
+        VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
+            SettingsSection("Refresh") {
+                SettingsRow {
+                    HStack {
+                        Text("Refresh Interval")
+                        Spacer()
+                        Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
+                            Text("1 minute").tag(60.0); Text("2 minutes").tag(120.0)
+                            Text("5 minutes").tag(300.0); Text("10 minutes").tag(600.0)
+                        }.labelsHidden().fixedSize()
+                    }
+                }
+                SettingsRow(divided: true) {
+                    Text("Accounts used by a visible menu bar group refresh at this interval.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            SettingsSection("Startup") {
+                SettingsRow {
+                    HStack {
+                        Text("Open at Login")
+                        Spacer()
+                        Toggle("Open at Login", isOn: Binding(get: { launchAtLogin.isOn }, set: { launchAtLogin.set($0) }))
+                            .labelsHidden().toggleStyle(.switch)
+                    }
+                }
+                if launchAtLogin.needsApproval {
+                    SettingsRow(divided: true) {
+                        HStack {
+                            Text("Allow AgentBar in Login Items to finish turning this on.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Open Login Items") { launchAtLogin.openLoginItems() }
+                        }
+                    }
+                }
+                if let error = launchAtLogin.errorMessage {
+                    SettingsRow(divided: true) { Text(error).font(.caption).foregroundStyle(.red) }
+                }
+            }
+            if store.hasOriginalDisplayConfiguration {
+                SettingsSection("Recovery") {
+                    SettingsRow { Button("Restore Original Groups…") { restoring = true } }
+                    SettingsRow(divided: true) {
+                        Text("Restore the saved layout from before the UX changes. The current layout is backed up first; account names and colors are kept.")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            SettingsSection {
+                SettingsRow {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text(Self.version).foregroundStyle(.secondary).textSelection(.enabled)
+                    }
+                }
+            }
+        }
+        .onAppear { launchAtLogin.refresh() }
+    }
+
     // The build number stays out: the build script fixes it at 1, so it tells nothing.
     private static var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development build"
+    }
+}
+
+/// One message across the top of Settings: an error to dismiss or a standing warning.
+private struct SettingsBanner: View {
+    let symbol: String
+    let tint: Color
+    let text: String
+    let dismiss: (() -> Void)?
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: symbol).foregroundStyle(tint).accessibilityHidden(true)
+            Text(text).font(.callout).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            if let dismiss { Button("Dismiss", action: dismiss) }
+        }
+        .padding(10)
+        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.horizontal, 20).padding(.top, 12)
     }
 }
