@@ -56,6 +56,7 @@ struct AccountManagementView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
+                if !store.canAddAccount { ProBadge() }
                 Button("Add Account…") { choosingProvider = true }
                     .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable || !store.canAddAccount)
             }

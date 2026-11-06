@@ -20,6 +20,17 @@ enum AppEdition: Sendable {
     /// Pro edits menu bar groups; Free shows the default layout read-only.
     var customizesMenuBar: Bool { self == .pro }
 
+    /// Where the free edition sends people to buy Pro, set at build time
+    /// (AGENTBAR_PURCHASE_URL becomes the Info.plist key AgentBarPurchaseURL).
+    /// Nil until the site exists; only an https address is used.
+    static let purchaseURL: URL? = purchaseURL(from: Bundle.main.object(forInfoDictionaryKey: "AgentBarPurchaseURL") as? String)
+
+    static func purchaseURL(from value: String?) -> URL? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty,
+              let url = URL(string: value), url.scheme?.lowercased() == "https", url.host?.isEmpty == false else { return nil }
+        return url
+    }
+
     var title: String {
         switch self {
         case .free: return String(localized: "Free")

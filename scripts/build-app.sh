@@ -66,8 +66,11 @@ mkdir -p "$bundle_path/Contents/MacOS"
 mkdir -p "$bundle_path/Contents/Resources"
 
 cp "$binary_path" "$bundle_path/Contents/MacOS/agent-bar"
-# App icon; regenerate with scripts/make-app-icon.swift.
-cp "$repo_dir/assets/AppIcon.icns" "$bundle_path/Contents/Resources/AppIcon.icns"
+# App icon; regenerate with scripts/make-app-icons.sh. The free edition's
+# wears a FREE ribbon.
+icon_file="AppIcon.icns"
+if [[ "$edition" == "free" ]]; then icon_file="AppIcon-Free.icns"; fi
+cp "$repo_dir/assets/$icon_file" "$bundle_path/Contents/Resources/AppIcon.icns"
 # Korean UI; English is the text in the code. See assets/ko.lproj.
 cp -R "$repo_dir/assets/ko.lproj" "$bundle_path/Contents/Resources/ko.lproj"
 mkdir -p "$bundle_path/Contents/Resources/en.lproj"
@@ -113,6 +116,12 @@ cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
 PLIST
 
 printf 'APPL????' > "$bundle_path/Contents/PkgInfo"
+
+# Where the free edition's PRO badges and menu link send people to buy Pro.
+# Without it they show, but the link waits for a purchase page.
+if [[ -n "${AGENTBAR_PURCHASE_URL:-}" ]]; then
+  /usr/libexec/PlistBuddy -c "Add :AgentBarPurchaseURL string $AGENTBAR_PURCHASE_URL" "$bundle_path/Contents/Info.plist"
+fi
 
 if [[ -z "$signing_identity" ]]; then
   for candidate in "FreshRestart Local Code Signing" "Screen Translate Local Code Signing"; do

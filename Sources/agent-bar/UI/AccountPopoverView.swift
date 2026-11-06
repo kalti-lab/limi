@@ -106,13 +106,20 @@ struct AccountPopoverView: View {
 
     private var footer: some View {
         HStack {
-            let count = store.visibleAccounts.count
-            // Separate sentences for one and many, since Korean does not add an "s".
-            Text(store.isRefreshing ? String(localized: "Refreshing…")
-                 : count == 1 ? String(localized: "1 account in menu bar") : String(localized: "\(count) accounts in menu bar"))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
+            if store.edition == .free {
+                // The free edition's way to Pro, seen each time the menu opens.
+                Button("Get AgentBar Pro…") { openPurchasePage() }
+                    .disabled(AppEdition.purchaseURL == nil)
+                    .help(AppEdition.purchaseURL == nil ? Text("The purchase page is coming soon.") : Text("Open the AgentBar Pro page"))
+            } else {
+                let count = store.visibleAccounts.count
+                // Separate sentences for one and many, since Korean does not add an "s".
+                Text(store.isRefreshing ? String(localized: "Refreshing…")
+                     : count == 1 ? String(localized: "1 account in menu bar") : String(localized: "\(count) accounts in menu bar"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 4)
             Button("Accounts…") { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) }
             Button("Quit") { NSApplication.shared.terminate(nil) }

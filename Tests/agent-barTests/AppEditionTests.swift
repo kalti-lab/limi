@@ -57,3 +57,14 @@ struct AppEditionTests {
         #expect(free.accounts.map(\.id) == [work.id])
     }
 }
+
+struct PurchaseLinkTests {
+    @Test func onlyAnHTTPSPageIsUsed() {
+        #expect(AppEdition.purchaseURL(from: " https://example.com/agentbar ")?.absoluteString == "https://example.com/agentbar")
+        // No site yet, or one that is not https, leaves the link waiting.
+        #expect(AppEdition.purchaseURL(from: nil) == nil)
+        #expect(AppEdition.purchaseURL(from: "") == nil)
+        #expect(AppEdition.purchaseURL(from: "http://example.com") == nil)
+        #expect(AppEdition.purchaseURL(from: "javascript:alert(1)") == nil)
+    }
+}

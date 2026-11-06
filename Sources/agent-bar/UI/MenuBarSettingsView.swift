@@ -36,7 +36,10 @@ struct MenuBarSettingsView: View {
                 MenuBarPreview(groups: groups, selectedID: selected?.id)
             }
             VStack(alignment: .leading, spacing: 6) {
-                SettingsSectionTitle("Groups")
+                HStack(spacing: 6) {
+                    SettingsSectionTitle("Groups")
+                    if !store.edition.customizesMenuBar { ProBadge() }
+                }
                 if !store.edition.customizesMenuBar {
                     Label("Customizing the menu bar is available in AgentBar Pro.", systemImage: "lock.fill")
                         .font(.caption).foregroundStyle(.secondary)
