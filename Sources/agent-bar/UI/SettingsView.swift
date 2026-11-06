@@ -84,9 +84,8 @@ struct SettingsView: View {
         } message: { Text("This restores the original groups, account order, selected limits and display options. Your current layout is saved as a backup first.") }
     }
 
+    // The build number stays out: the build script fixes it at 1, so it tells nothing.
     private static var version: String {
-        let info = Bundle.main.infoDictionary ?? [:]
-        let version = info["CFBundleShortVersionString"] as? String ?? "Development build"
-        return (info["CFBundleVersion"] as? String).map { "\(version) (\($0))" } ?? version
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development build"
     }
 }
