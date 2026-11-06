@@ -12,6 +12,14 @@ struct AccountIdentity: Codable, Equatable, Sendable {
         [email, organization].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
+    /// The organization worth showing beside the email. A personal one named
+    /// after the email ("…'s Organization") only repeats it.
+    var visibleOrganization: String? {
+        guard let organization = organization?.trimmingCharacters(in: .whitespaces), !organization.isEmpty else { return nil }
+        if let email, !email.isEmpty, organization.localizedCaseInsensitiveContains(email) { return nil }
+        return organization
+    }
+
     // Email is display information, not a provider-guaranteed immutable identifier.
     func comparison(to other: Self) -> IdentityComparison {
         if let stableID, let otherID = other.stableID {

@@ -32,6 +32,26 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
             return "Codex app-server rate limits"
         }
     }
+
+    /// The provider's mark: Claude's spark and the Codex prompt.
+    var symbolName: String {
+        switch self {
+        case .claude:
+            return "asterisk"
+        case .codex:
+            return "terminal"
+        }
+    }
+
+    /// What adding an account shows, said for the person choosing one.
+    var accountSummary: String {
+        switch self {
+        case .claude:
+            return "5-hour and weekly limits of your Claude plan"
+        case .codex:
+            return "5-hour and weekly limits of your ChatGPT plan"
+        }
+    }
 }
 
 enum WindowDisplayStyle: String, Equatable, Codable, Sendable {
@@ -99,6 +119,8 @@ struct ProviderSnapshot: Equatable, Codable, Sendable {
         fiveHour ?? weekly
     }
 
+    static let notLoadedNote = "Account usage has not loaded yet."
+
     static func placeholder(for provider: ProviderKind) -> ProviderSnapshot {
         ProviderSnapshot(
             provider: provider,
@@ -108,7 +130,7 @@ struct ProviderSnapshot: Equatable, Codable, Sendable {
             modelWeeklies: [],
             planName: nil,
             sourceDescription: provider.sourceDescription,
-            note: "Account usage has not loaded yet.",
+            note: notLoadedNote,
             isStale: true,
             requiresLogin: false
         )

@@ -19,12 +19,14 @@ enum AppTheme {
     static let compactUnavailableStroke = Color.white.opacity(0.30)
     static let compactAccentGlow = Color(red: 0.69, green: 0.58, blue: 1.00)
 
+    // The colors people already link to each provider: Claude's terracotta
+    // and the ChatGPT green Codex signs in with.
     static func tint(for provider: ProviderKind) -> Color {
         switch provider {
         case .claude:
-            return Color(red: 0.22, green: 0.88, blue: 0.40)
+            return Color(red: 0.85, green: 0.47, blue: 0.34)
         case .codex:
-            return Color(red: 0.95, green: 0.58, blue: 0.30)
+            return Color(red: 0.06, green: 0.64, blue: 0.50)
         }
     }
 

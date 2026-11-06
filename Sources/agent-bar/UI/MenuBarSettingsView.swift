@@ -410,20 +410,14 @@ private struct MenuBarLineEditor: View {
                 })) {
                     ForEach(store.orderedAccounts) { Text(store.accountLabel(for: $0) + " · " + $0.provider.shortName).tag($0.id) }
                 }.labelsHidden().frame(width: 150, alignment: .leading)
-                HStack(spacing: 4) {
-                    ForEach(limitChoices) { metric in
-                        Button {
-                            store.updateDisplay { $0.editLayout(groupID) { group in
-                                guard let i = group.rows.firstIndex(where: { $0.id == line.id }) else { return }
-                                group.rows[i].metricID = metric.id
-                            } }
-                        } label: {
-                            Text(limitTitle(metric)).font(.caption).lineLimit(1).frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(ChoiceButtonStyle(selected: line.metricID == metric.id))
-                        .help(metric.title + (metric.window?.utilization == nil ? " · no data yet" : ""))
-                        .accessibilityLabel(metric.title)
-                        .accessibilityAddTraits(line.metricID == metric.id ? .isSelected : [])
+                // Full names ("Fable weekly") when the row has room for all of
+                // them; otherwise the shorter names in equal widths.
+                ViewThatFits(in: .horizontal) {
+                    FillingHStack(spacing: 4) {
+                        ForEach(limitChoices) { limitButton($0, title: $0.choiceTitle, truncates: false) }
+                    }
+                    HStack(spacing: 4) {
+                        ForEach(limitChoices) { limitButton($0, title: $0.compactChoiceTitle, truncates: true) }
                     }
                 }.frame(maxWidth: .infinity)
             if canRepresentPercentage {
@@ -464,17 +458,55 @@ private struct MenuBarLineEditor: View {
         if metrics.contains(where: { $0.id == line.metricID }) { return metrics }
         return metrics + [DisplayMetric(id: line.metricID, title: line.metricID, window: nil)]
     }
-    private func limitTitle(_ metric: DisplayMetric) -> String {
-        switch metric.id {
-        case "5h": return "5 hours"
-        case "weekly": return "Weekly"
-        default: return metric.title.replacingOccurrences(of: " Weekly", with: "")
+    private func limitButton(_ metric: DisplayMetric, title: String, truncates: Bool) -> some View {
+        Button {
+            store.updateDisplay { $0.editLayout(groupID) { group in
+                guard let i = group.rows.firstIndex(where: { $0.id == line.id }) else { return }
+                group.rows[i].metricID = metric.id
+            } }
+        } label: {
+            Text(title).font(.caption).lineLimit(1)
+                .fixedSize(horizontal: !truncates, vertical: false)
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(ChoiceButtonStyle(selected: line.metricID == metric.id))
+        .help(metric.title + (metric.window?.utilization == nil ? " · no data yet" : ""))
+        .accessibilityLabel(metric.title)
+        .accessibilityAddTraits(line.metricID == metric.id ? .isSelected : [])
     }
     private func move(_ offset: Int) {
         store.updateDisplay { $0.editLayout(groupID) { group in
             group.moveLine(line.id, offset: offset)
         } }
+    }
+}
+
+/// Each child at least as wide as its content, sharing what is left so the row
+/// stays full. Its ideal width is the content alone, which is what ViewThatFits
+/// compares against the row.
+struct FillingHStack: Layout {
+    var spacing: CGFloat
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let ideal = subviews.map { $0.sizeThatFits(.unspecified) }
+        let content = Self.widths(ideal.map(\.width), spacing: spacing, available: 0).reduce(0, +)
+            + spacing * CGFloat(max(ideal.count - 1, 0))
+        return CGSize(width: max(content, proposal.width ?? content), height: ideal.map(\.height).max() ?? 0)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let widths = Self.widths(subviews.map { $0.sizeThatFits(.unspecified).width }, spacing: spacing, available: bounds.width)
+        var x = bounds.minX
+        for (subview, width) in zip(subviews, widths) {
+            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
+                          proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
+        }
+    }
+    /// Each content width grown by an equal share of the room left over.
+    static func widths(_ content: [CGFloat], spacing: CGFloat, available: CGFloat) -> [CGFloat] {
+        guard !content.isEmpty else { return [] }
+        let used = content.reduce(0, +) + spacing * CGFloat(content.count - 1)
+        let extra = max(0, available - used) / CGFloat(content.count)
+        return content.map { $0 + extra }
     }
 }
 

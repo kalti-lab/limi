@@ -330,6 +330,21 @@ struct DisplayMetric: Identifiable {
         default: return String(title.prefix(3)).uppercased()
         }
     }
+    /// The name on a limit choice. Model limits say they are weekly.
+    var choiceTitle: String {
+        switch id {
+        case "5h": return "5 hours"
+        case "weekly": return "Weekly"
+        default: return title.replacingOccurrences(of: " Weekly", with: " weekly")
+        }
+    }
+    /// The same name without the window, for rows too narrow for it.
+    var compactChoiceTitle: String {
+        switch id {
+        case "5h", "weekly": return choiceTitle
+        default: return title.replacingOccurrences(of: " Weekly", with: "")
+        }
+    }
     static func all(_ snapshot: ProviderSnapshot) -> [Self] {
         var result = [Self(id: "5h", title: "5-Hour Session", window: snapshot.fiveHour), Self(id: "weekly", title: "Weekly Limit", window: snapshot.weekly)]
         for model in snapshot.displayedModelWeeklies {

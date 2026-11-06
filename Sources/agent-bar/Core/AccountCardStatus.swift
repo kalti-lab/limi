@@ -1,0 +1,30 @@
+import Foundation
+
+/// What an account card in Settings says about the account's usage.
+struct AccountCardStatus: Equatable {
+    enum Tone: Equatable { case ok, attention, quiet }
+    let tone: Tone
+    let text: String
+    /// The reason behind a warning, shown on hover.
+    var detail: String? = nil
+
+    static func make(snapshot: ProviderSnapshot, deletionPending: Bool, refreshed: Bool,
+                     refreshing: Bool, now: Date = .now) -> Self {
+        if deletionPending { return Self(tone: .attention, text: "Deletion pending") }
+        if snapshot.requiresLogin { return Self(tone: .attention, text: "Sign-in required", detail: snapshot.note) }
+        // An old time would read as a fault; these accounts are simply not refreshed.
+        guard refreshed else {
+            return Self(tone: .quiet, text: "Not shown in the menu bar",
+                        detail: "Accounts refresh only while a visible menu bar group uses them.")
+        }
+        guard snapshot.fiveHour?.utilization != nil || snapshot.weekly?.utilization != nil else {
+            if refreshing || snapshot.note == ProviderSnapshot.notLoadedNote { return Self(tone: .quiet, text: "Loading usage…") }
+            return Self(tone: .attention, text: snapshot.note ?? "Could not load usage")
+        }
+        let updated = TokenFormatters.relativeUpdateString(from: now, updatedAt: snapshot.updatedAt)
+        if snapshot.isStale {
+            return Self(tone: .attention, text: "Couldn't refresh · updated \(updated)", detail: snapshot.note)
+        }
+        return Self(tone: .ok, text: "Updated \(updated)")
+    }
+}

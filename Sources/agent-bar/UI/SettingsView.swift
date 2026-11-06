@@ -17,6 +17,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: UsageStore
     @State private var restoring = false
     @State private var tab: SettingsTab
+    @StateObject private var launchAtLogin = LaunchAtLogin()
     init(tab: SettingsTab = .accounts) { _tab = State(initialValue: tab) }
     var body: some View {
         VStack(spacing: 0) {
@@ -32,11 +33,25 @@ struct SettingsView: View {
                 Form {
                     Section("Refresh") {
                         Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
-                            Text("60 sec").tag(60.0); Text("120 sec").tag(120.0)
-                            Text("300 sec").tag(300.0); Text("600 sec").tag(600.0)
+                            Text("1 minute").tag(60.0); Text("2 minutes").tag(120.0)
+                            Text("5 minutes").tag(300.0); Text("10 minutes").tag(600.0)
                         }
-                        Text("Only accounts used by visible groups are refreshed. Hidden groups keep their settings.")
+                        Text("Accounts used by a visible menu bar group refresh at this interval.")
                             .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Section("Startup") {
+                        Toggle("Open at Login", isOn: Binding(get: { launchAtLogin.isOn }, set: { launchAtLogin.set($0) }))
+                        if launchAtLogin.needsApproval {
+                            HStack {
+                                Text("Allow AgentBar in Login Items to finish turning this on.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Open Login Items") { launchAtLogin.openLoginItems() }
+                            }
+                        }
+                        if let error = launchAtLogin.errorMessage {
+                            Text(error).font(.caption).foregroundStyle(.red)
+                        }
                     }
                     if store.hasOriginalDisplayConfiguration {
                         Section("Recovery") {
@@ -45,7 +60,11 @@ struct SettingsView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    Section {
+                        LabeledContent("Version", value: Self.version)
+                    }
                 }.formStyle(.grouped)
+                .onAppear { launchAtLogin.refresh() }
             }
             if tab != .accounts {
                 if let error = store.errorMessage {
@@ -63,5 +82,11 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) { }
             Button("Restore") { store.restoreOriginalDisplayConfiguration(); tab = .menuBar }
         } message: { Text("This restores the original groups, account order, selected limits and display options. Your current layout is saved as a backup first.") }
+    }
+
+    private static var version: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let version = info["CFBundleShortVersionString"] as? String ?? "Development build"
+        return (info["CFBundleVersion"] as? String).map { "\(version) (\($0))" } ?? version
     }
 }

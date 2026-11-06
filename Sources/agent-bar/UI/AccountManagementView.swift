@@ -64,7 +64,8 @@ struct AccountManagementView: View {
         } message: { Text("This removes only the selected account’s AgentBar credentials and usage cache. External CLI sign-ins are preserved.") }
     }
     private func row(_ account: UsageAccount, preview: Bool = false) -> some View {
-        HStack(spacing: 10) {
+        let snapshot = store.snapshot(for: account)
+        return HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .frame(width: 14, height: 22).contentShape(Rectangle())
@@ -75,27 +76,35 @@ struct AccountManagementView: View {
                 .accessibilityLabel("Move \(store.accountLabel(for: account)) account")
                 .accessibilityAction(named: "Move up") { moveAccount(account.id, offset: -1) }
                 .accessibilityAction(named: "Move down") { moveAccount(account.id, offset: 1) }
-            VStack(alignment: .leading, spacing: 4) {
-                Button { editing = account } label: {
-                    Text(store.accountLabel(for: account)).font(.headline).lineLimit(1)
-                }.buttonStyle(.plain).help("Rename account")
-                if let email = account.identity?.email, !email.isEmpty {
-                    Text(email).font(.callout).textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text(account.isManaged ? "Account details unavailable" : "Sign-in required")
-                        .font(.callout).foregroundStyle(.secondary)
+            ProviderMark(provider: account.provider)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Button { editing = account } label: {
+                        Text(store.accountLabel(for: account)).font(.headline).lineLimit(1)
+                    }.buttonStyle(.plain).help("Rename account")
+                    if let plan = snapshot.planName, !plan.isEmpty {
+                        Text(plan).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.07), in: Capsule())
+                            .accessibilityLabel("\(plan) plan")
+                    }
                 }
-                Text([account.provider.displayName, account.identity?.organization]
-                    .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let identity = identityLine(account) {
+                    Text(identity).font(.callout).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    AccountStatusLine(status: .make(snapshot: snapshot, deletionPending: account.deletionPending,
+                                                    refreshed: store.refreshAccountIDs.contains(account.id),
+                                                    refreshing: store.refreshingAccounts.contains(account.id),
+                                                    now: context.date))
+                }
             }
             Spacer()
-            if account.deletionPending {
-                Text("Deletion pending").font(.caption).foregroundStyle(.orange)
-            } else if store.snapshot(for: account).requiresLogin {
-                Image(systemName: "exclamationmark.circle").foregroundStyle(.orange).help("Sign-in required")
+            if snapshot.requiresLogin && !account.deletionPending {
+                Button("Reconnect") { store.startLogin(account.provider, replacing: account) }
+                    .controlSize(.small)
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
             }
             Menu {
                 Button("Rename") { editing = account }
@@ -111,6 +120,13 @@ struct AccountManagementView: View {
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+    }
+
+    /// Email and organization on one line. The provider shows in the mark.
+    private func identityLine(_ account: UsageAccount) -> String? {
+        let parts = [account.identity?.email, account.identity?.visibleOrganization].compactMap { $0 }.filter { !$0.isEmpty }
+        if !parts.isEmpty { return parts.joined(separator: " · ") }
+        return account.isManaged ? "Account details unavailable" : nil
     }
 
     @ViewBuilder private var accountDragOverlay: some View {
@@ -164,28 +180,47 @@ struct AccountManagementView: View {
     }
 }
 
+/// A colored dot and a short line: updated, waiting, or what needs attention.
+private struct AccountStatusLine: View {
+    let status: AccountCardStatus
+    var body: some View {
+        let line = HStack(spacing: 5) {
+            Circle().fill(dotColor).frame(width: 6, height: 6).accessibilityHidden(true)
+            Text(status.text).font(.caption).lineLimit(1)
+                .foregroundStyle(status.tone == .attention ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+        }
+        if let detail = status.detail { line.help(detail) } else { line }
+    }
+    private var dotColor: Color {
+        switch status.tone {
+        case .ok: return .green
+        case .attention: return .orange
+        case .quiet: return Color.secondary.opacity(0.5)
+        }
+    }
+}
+
 private struct AddAccountProviderSheet: View {
     @Environment(\.dismiss) private var dismiss
     let select: (ProviderKind) -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Add Account").font(.title3.bold())
-            Text("Choose an agent to sign in with.").font(.callout).foregroundStyle(.secondary)
-            Text("Sign in using your usual browser. AgentBar keeps a separate sign-in for usage monitoring.")
-                .font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Add Account").font(.title3.bold())
+                Text("Sign in using your usual browser. AgentBar keeps a separate sign-in for usage monitoring.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             ForEach(ProviderKind.allCases) { provider in
                 Button {
                     dismiss()
                     select(provider)
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "terminal.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .frame(width: 26, height: 26)
-                            .background(AppTheme.tint(for: provider).opacity(0.16), in: RoundedRectangle(cornerRadius: 7))
+                        ProviderMark(provider: provider)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(provider.displayName).font(.headline)
-                            Text(provider.sourceDescription).font(.caption).foregroundStyle(.secondary)
+                            Text(provider.accountSummary).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
