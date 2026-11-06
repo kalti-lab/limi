@@ -40,7 +40,11 @@ actor ClaudeCredentialRefresher {
         }
         switch response.statusCode {
         case 200: break
-        case 400, 401, 403: throw AccountError.loginRequired
+        case 400, 401, 403:
+            if AnthropicAccessBlock.matches(status: response.statusCode, body: responseData) {
+                throw AccountError.message(AnthropicAccessBlock.message)
+            }
+            throw AccountError.loginRequired
         case 429: throw AccountError.rateLimited(60)
         default: throw AccountError.message(String(localized: "Claude sign-in refresh is temporarily unavailable. Please try again."))
         }

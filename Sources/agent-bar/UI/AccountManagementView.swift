@@ -8,8 +8,13 @@ private struct AccountFrames: PreferenceKey {
 }
 
 // Accounts manage identities; menu bar groups control display and polling.
+private struct ClaudeConsentRequest { let replacing: UsageAccount? }
+
 struct AccountManagementView: View {
     @EnvironmentObject private var store: UsageStore
+    @EnvironmentObject private var settings: AppSettings
+    @State private var chosenProvider: ProviderKind?
+    @State private var claudeConsent: ClaudeConsentRequest?
     @State private var editing: UsageAccount?
     @State private var deleting: UsageAccount?
     @State private var choosingProvider = false
@@ -60,11 +65,26 @@ struct AccountManagementView: View {
                 Button("Add Account…") { choosingProvider = true }
                     .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable || !store.canAddAccount)
             }
+            // Asked once, before the first Claude sign-in it covers.
+            .alert("How \(AppInfo.name) reads Claude usage", isPresented: Binding(get: { claudeConsent != nil }, set: { if !$0 { claudeConsent = nil } }),
+                   presenting: claudeConsent) { request in
+                Button("Cancel", role: .cancel) { claudeConsent = nil }
+                Button("Continue") {
+                    settings.claudeAccessNoticeAccepted = true
+                    claudeConsent = nil
+                    store.startLogin(.claude, replacing: request.replacing)
+                }
+            } message: { _ in
+                Text("\(AppInfo.name) signs in through Claude Code and keeps that sign-in to read this account's usage. Anthropic's terms limit apps that keep Claude sign-ins, so Anthropic could block these reads at any time.")
+            }
         }
         .onDisappear { accountDrag = nil; settlingAccountDrag = false }
         .sheet(item: $editing) { account in AccountEditSheet(account: account, displayName: store.accountLabel(for: account)) }
-        .sheet(isPresented: $choosingProvider) {
-            AddAccountProviderSheet { provider in store.startLogin(provider) }
+        // The sign-in starts once the sheet is gone, so a consent alert can show.
+        .sheet(isPresented: $choosingProvider, onDismiss: {
+            if let provider = chosenProvider { chosenProvider = nil; connect(provider) }
+        }) {
+            AddAccountProviderSheet { provider in chosenProvider = provider }
         }
         .alert("Delete this account from \(AppInfo.name)?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Cancel", role: .cancel) { deleting = nil }
@@ -112,20 +132,30 @@ struct AccountManagementView: View {
             }
             Spacer()
             if snapshot.requiresLogin && !account.deletionPending {
-                Button("Reconnect") { store.startLogin(account.provider, replacing: account) }
+                Button("Reconnect") { connect(account.provider, replacing: account) }
                     .controlSize(.small)
                     .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
             }
             Menu {
                 Button("Rename") { editing = account }
                     .disabled(account.deletionPending || store.storageUnavailable)
-                Button("Reconnect") { store.startLogin(account.provider, replacing: account) }
+                Button("Reconnect") { connect(account.provider, replacing: account) }
                     .disabled(store.isLoggingIn || store.pendingLogin != nil || account.deletionPending || store.storageUnavailable)
                 Button("Delete", role: .destructive) { deleting = account }
                     .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
             } label: { Image(systemName: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .help("Account options")
+        }
+    }
+
+    /// Starts a sign-in; a Claude one first asks, once, whether the person
+    /// accepts how its sign-in is kept.
+    private func connect(_ provider: ProviderKind, replacing: UsageAccount? = nil) {
+        if provider == .claude && !settings.claudeAccessNoticeAccepted {
+            claudeConsent = ClaudeConsentRequest(replacing: replacing)
+        } else {
+            store.startLogin(provider, replacing: replacing)
         }
     }
 

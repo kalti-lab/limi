@@ -74,6 +74,7 @@ struct ClaudeUsageProvider: UsageProviding {
                 )
             } catch {
                 let requiresLogin = Self.requiresLogin(for: error)
+                let blocked = (error as? AccountError).map { if case .message(let text) = $0 { return text == AnthropicAccessBlock.message }; return false } ?? false
                 return ProviderSnapshot(
                     provider: .claude,
                     updatedAt: .now,
@@ -82,8 +83,8 @@ struct ClaudeUsageProvider: UsageProviding {
                     modelWeeklies: [],
                     planName: nil,
                     sourceDescription: "Anthropic OAuth usage API + cache",
-                    note: requiresLogin
-                        ? String(localized: "Sign-in required. Reconnect this account in Settings › Accounts.")
+                    note: blocked ? AnthropicAccessBlock.message
+                        : requiresLogin ? String(localized: "Sign-in required. Reconnect this account in Settings › Accounts.")
                         : String(localized: "Couldn't read Anthropic account usage: \(error.localizedDescription)"),
                     isStale: true,
                     requiresLogin: requiresLogin
@@ -200,6 +201,7 @@ struct ClaudeUsageProvider: UsageProviding {
 
     private func note(for data: RemoteUsageData) -> String {
         if data.apiUnavailable {
+            if data.apiError == "blocked" { return AnthropicAccessBlock.message }
             if Self.requiresLogin(for: data.apiError) {
                 return String(localized: "Claude login required. Sign in to Claude Code, then refresh.")
             }
@@ -243,7 +245,8 @@ struct ClaudeUsageProvider: UsageProviding {
             }
 
             guard httpResponse.statusCode == 200 else {
-                let error = httpResponse.statusCode == 429 ? "rate-limited" : "http-\(httpResponse.statusCode)"
+                let error = AnthropicAccessBlock.matches(status: httpResponse.statusCode, body: data) ? "blocked"
+                    : httpResponse.statusCode == 429 ? "rate-limited" : "http-\(httpResponse.statusCode)"
                 let retryAfterSeconds = httpResponse.statusCode == 429
                     ? Self.parseRetryAfterSeconds(httpResponse.value(forHTTPHeaderField: "Retry-After"))
                     : nil

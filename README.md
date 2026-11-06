@@ -87,6 +87,10 @@ Unknown usage is `--`, not `0%`. Old values retain their original timestamp and 
 
 No backend, telemetry, browser-cookie extraction, or session-log scanning is added. Authentication and usage requests go to the relevant provider through its CLI or usage endpoint.
 
+## Claude usage and Anthropic's terms
+
+Limi reads Claude usage with each account's own Claude Code sign-in. The sign-in completes in Claude Code's own browser flow; Limi then keeps a copy of it in the account's private folder to read usage on every refresh and to renew it. Anthropic's [terms for Claude Code](https://code.claude.com/docs/en/legal-and-compliance) limit apps that collect or store Claude sign-ins, so Anthropic could block these reads at any time. Limi asks once, before the first Claude sign-in or reconnect, whether you accept this. If Anthropic refuses these reads, as it refused third-party Claude clients in 2026, the account says so instead of asking you to reconnect, since reconnecting cannot help.
+
 ## Build and install
 
 ```bash

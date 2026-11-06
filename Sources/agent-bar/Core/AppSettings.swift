@@ -41,6 +41,12 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(language.rawValue, forKey: AppLanguage.defaultsKey) }
     }
 
+    /// Whether the person accepted, once, how Claude sign-ins are kept and
+    /// that Anthropic could block reading usage with them.
+    @Published var claudeAccessNoticeAccepted: Bool {
+        didSet { defaults.set(claudeAccessNoticeAccepted, forKey: Keys.claudeAccessNoticeAccepted) }
+    }
+
     @Published private(set) var providerSettings: [ProviderKind: ProviderDisplaySettings] = [:]
 
     let availableProviders: [ProviderKind]
@@ -53,6 +59,7 @@ final class AppSettings: ObservableObject {
         let storedInterval = defaults.object(forKey: Keys.refreshIntervalSeconds) as? Double ?? 120
         self.refreshIntervalSeconds = max(storedInterval, 60)
         self.language = AppLanguage.stored(in: defaults)
+        self.claudeAccessNoticeAccepted = defaults.bool(forKey: Keys.claudeAccessNoticeAccepted)
 
         var settings: [ProviderKind: ProviderDisplaySettings] = [:]
         for provider in availableProviders {
@@ -202,5 +209,6 @@ final class AppSettings: ObservableObject {
 
     private enum Keys {
         static let refreshIntervalSeconds = "refreshIntervalSeconds"
+        static let claudeAccessNoticeAccepted = "claudeAccessNoticeAccepted"
     }
 }
