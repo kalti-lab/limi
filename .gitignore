@@ -1,5 +1,6 @@
 .build
-AgentBar.app
+# Built app bundles, whatever the app is named.
+*.app
 .omx/
 .DS_Store
 .swiftpm/

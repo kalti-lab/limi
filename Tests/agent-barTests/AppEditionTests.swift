@@ -68,3 +68,13 @@ struct PurchaseLinkTests {
         #expect(AppEdition.purchaseURL(from: "javascript:alert(1)") == nil)
     }
 }
+
+@MainActor
+struct AppNameTests {
+    @Test func theNameComesFromOnePlaceAndProFollowsIt() {
+        // Tests have no app bundle, so they see the default the build also uses.
+        #expect(AppInfo.name == AppInfo.defaultName)
+        #expect(AppInfo.proName == "\(AppInfo.name) Pro")
+        #expect(UsageStore.accountLimitMessage.contains(AppInfo.proName))
+    }
+}

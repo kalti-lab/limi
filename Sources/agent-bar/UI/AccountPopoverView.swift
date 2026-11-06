@@ -108,9 +108,9 @@ struct AccountPopoverView: View {
         HStack {
             if store.edition == .free {
                 // The free edition's way to Pro, seen each time the menu opens.
-                Button("Get AgentBar Pro…") { openPurchasePage() }
+                Button("Get \(AppInfo.proName)…") { openPurchasePage() }
                     .disabled(AppEdition.purchaseURL == nil)
-                    .help(AppEdition.purchaseURL == nil ? Text("The purchase page is coming soon.") : Text("Open the AgentBar Pro page"))
+                    .help(AppEdition.purchaseURL == nil ? Text("The purchase page is coming soon.") : Text("Open the \(AppInfo.proName) page"))
             } else {
                 let count = store.visibleAccounts.count
                 // Separate sentences for one and many, since Korean does not add an "s".

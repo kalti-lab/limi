@@ -77,7 +77,7 @@ enum ClaudeOAuthLauncher {
         }
         let service = AccountFiles.claudeService(directory)
         guard let data = try readKeychain(service, NSUserName()), usable(data) else {
-            throw AccountError.message(String(localized: "Claude signed in, but AgentBar could not read its saved credential. Reconnect to try again."))
+            throw AccountError.message(String(localized: "Claude signed in, but \(AppInfo.name) could not read its saved credential. Reconnect to try again."))
         }
         // Polling reads the file while the Mac is locked, which complete protection blocks.
         try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

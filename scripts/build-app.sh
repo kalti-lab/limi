@@ -5,7 +5,13 @@ set -euo pipefail
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_dir=$(cd "$script_dir/.." && pwd)
 
-bundle_name="AgentBar.app"
+# The app's name people see: the .app, Finder, Login Items, the Settings
+# title and every sentence that names the app (AppInfo.name reads it from the
+# bundle). Change it here, or with AGENTBAR_APP_NAME, to rename the app.
+# Internal names (bundle ID, ~/.agentbar data, agent-bar module) stay fixed so a
+# rename keeps settings and accounts.
+app_name="${AGENTBAR_APP_NAME:-Limi}"
+bundle_name="$app_name.app"
 bundle_path="$repo_dir/$bundle_name"
 install_dir="$HOME/Applications"
 install_path="$install_dir/$bundle_name"
@@ -88,7 +94,7 @@ cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
     <string>ko</string>
   </array>
   <key>CFBundleDisplayName</key>
-  <string>AgentBar</string>
+  <string>APP_NAME</string>
   <key>CFBundleExecutable</key>
   <string>agent-bar</string>
   <key>CFBundleIconFile</key>
@@ -98,7 +104,7 @@ cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>AgentBar</string>
+  <string>APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -114,6 +120,10 @@ cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+
+# APP_NAME above stands for the app name; set it from app_name.
+plutil -replace CFBundleName -string "$app_name" "$bundle_path/Contents/Info.plist"
+plutil -replace CFBundleDisplayName -string "$app_name" "$bundle_path/Contents/Info.plist"
 
 printf 'APPL????' > "$bundle_path/Contents/PkgInfo"
 
@@ -141,7 +151,7 @@ if [[ "$should_install" -eq 1 ]]; then
   backup_dir="$HOME/Library/Application Support/AgentBar/Backups/$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$backup_dir"
   if [[ -d "$install_path" ]]; then
-    ditto "$install_path" "$backup_dir/AgentBar.app"
+    ditto "$install_path" "$backup_dir/$bundle_name"
   fi
   defaults export dev.chenjing.agent-bar "$backup_dir/settings.plist" >/dev/null 2>&1 || true
   if [[ -d "$HOME/.agentbar/multi-account-v1" ]]; then
@@ -153,7 +163,7 @@ if [[ "$should_install" -eq 1 ]]; then
   if [[ -d "$install_path" ]]; then
     # The installer requires the running app to be closed before replacement.
     if pgrep -f "^$install_path/Contents/MacOS/agent-bar$" >/dev/null; then
-      echo "AgentBar is still running; installation stopped. Backup: $backup_dir" >&2
+      echo "$app_name is still running; installation stopped. Backup: $backup_dir" >&2
       exit 1
     fi
     mv "$install_path" "$staging_dir/previous.app"

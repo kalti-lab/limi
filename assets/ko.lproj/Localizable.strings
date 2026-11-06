@@ -1,6 +1,7 @@
-/* AgentBar Korean UI, in the formal 합니다 style. Keys are the English
-   text in the code, as the compiler extracts them; untranslated keys
-   show in English. */
+/* Korean UI, in the formal 합니다 style. Keys are the English text in the
+   code, as the compiler extracts them; untranslated keys show in English.
+   %@ in a sentence about the app is its name (AppInfo.name): it is followed
+   by 앱 or by a particle that does not change with the name's last sound. */
 
 "%@ (line %lld)" = "%@ (%lld번째 줄)";
 "%@ Weekly" = "%@ 주간 한도";
@@ -11,6 +12,7 @@
 "%@ · Drag to reorder" = "%@ · 끌어서 순서 바꾸기";
 "%@ · hidden · Drag to reorder" = "%@ · 숨김 · 끌어서 순서 바꾸기";
 "%@ · no data yet" = "%@ · 아직 데이터 없음";
+"%@ — Settings" = "%@ — 설정";
 "%lld accounts in menu bar" = "메뉴 막대에 계정 %lld개";
 "(cached)" = "(저장된 값)";
 "1 account in menu bar" = "메뉴 막대에 계정 1개";
@@ -39,11 +41,10 @@
 "Add a group, then add a line for each usage limit you want to see." = "그룹을 추가한 다음, 보고 싶은 사용 한도마다 줄을 추가하세요.";
 "Add an account in the Accounts tab first." = "먼저 계정 탭에서 계정을 추가하세요.";
 "Add usage line %lld" = "사용량 줄 %lld 추가";
-"AgentBar — Settings" = "AgentBar — 설정";
 "All components are off. This group is hidden and its refresh is paused." = "보여 줄 요소가 모두 꺼져 있습니다. 이 그룹은 숨겨지고 새로 고침도 멈춥니다.";
-"Allow AgentBar in Login Items to finish turning this on." = "로그인 항목에서 AgentBar를 허용하면 켜집니다.";
+"Allow %@ in Login Items to finish turning this on." = "로그인 항목에서 %@ 앱을 허용하면 켜집니다.";
 "Anthropic did not return an account-wide weekly window, so Weekly is following the %@ window." = "Anthropic이 계정 전체 주간 한도를 보내 주지 않아, 주간은 %@ 한도를 따릅니다.";
-"Available in AgentBar Pro" = "AgentBar Pro에서 쓸 수 있습니다";
+"Available in %@" = "%@에서 쓸 수 있습니다";
 "Badge text and color are edited on usage lines in Menu Bar." = "배지 글자와 색은 메뉴 막대 탭의 사용량 줄에서 바꿉니다.";
 "Badge, one bar, percentage." = "배지, 막대 하나, 퍼센트.";
 "Budget %@" = "한도 %@";
@@ -59,7 +60,7 @@
 "Claude returned an invalid sign-in refresh response." = "Claude가 로그인 갱신 요청에 올바르게 응답하지 않았습니다.";
 "Claude sign-in did not complete." = "Claude 로그인이 완료되지 않았습니다.";
 "Claude sign-in refresh is temporarily unavailable. Please try again." = "지금은 Claude 로그인을 갱신할 수 없습니다. 다시 시도하세요.";
-"Claude signed in, but AgentBar could not read its saved credential. Reconnect to try again." = "Claude에는 로그인했지만, AgentBar가 저장된 자격 증명을 읽지 못했습니다. 다시 연결해 보세요.";
+"Claude signed in, but %@ could not read its saved credential. Reconnect to try again." = "Claude에는 로그인했지만, %@ 앱이 저장된 자격 증명을 읽지 못했습니다. 다시 연결해 보세요.";
 "Codex did not return a valid official sign-in URL." = "Codex가 올바른 공식 로그인 주소를 보내 주지 않았습니다.";
 "Codex request failed: %@." = "Codex 요청이 실패했습니다: %@.";
 "Codex sign-in did not complete." = "Codex 로그인이 완료되지 않았습니다.";
@@ -82,11 +83,11 @@
 "Couldn't read Anthropic account usage: %@" = "Anthropic 계정 사용량을 읽지 못했습니다: %@";
 "Couldn't read the Anthropic usage API (%@)." = "Anthropic 사용량 API를 읽지 못했습니다(%@).";
 "Couldn't refresh · updated %@" = "새로 고치지 못함 · %@ 업데이트";
-"Customizing the menu bar is available in AgentBar Pro." = "메뉴 막대 꾸미기는 AgentBar Pro에서 쓸 수 있습니다.";
+"Customizing the menu bar is available in %@." = "메뉴 막대 꾸미기는 %@에서 쓸 수 있습니다.";
 "Delete" = "삭제";
 "Delete %@?" = "‘%@’ 그룹을 삭제하시겠습니까?";
 "Delete Group…" = "그룹 삭제…";
-"Delete this account from AgentBar?" = "이 계정을 AgentBar에서 삭제하시겠습니까?";
+"Delete this account from %@?" = "이 계정을 %@에서 삭제하시겠습니까?";
 "Deletion pending" = "삭제 대기 중";
 "Dismiss" = "닫기";
 "Drag to another slot" = "끌어서 다른 칸으로 옮기기";
@@ -100,7 +101,7 @@
 "Every usage percentage, arranged from left to right." = "모든 사용량 퍼센트를 왼쪽부터 차례로 보여 줍니다.";
 "Free" = "무료";
 "General" = "일반";
-"Get AgentBar Pro…" = "AgentBar Pro 구매…";
+"Get %@…" = "%@ 구매…";
 "Group" = "그룹";
 "Group %lld" = "그룹 %lld";
 "Group options" = "그룹 옵션";
@@ -131,7 +132,7 @@
 "Only this display group is removed. Its accounts remain available. To keep its layout for later, turn off Show in menu bar instead." = "이 표시 그룹만 삭제되고 계정은 그대로 남습니다. 배치를 나중에 다시 쓰려면 삭제하는 대신 ‘메뉴 막대에 표시’를 끄세요.";
 "Open Login Items" = "로그인 항목 열기";
 "Open at Login" = "로그인 시 열기";
-"Open the AgentBar Pro page" = "AgentBar Pro 페이지 열기";
+"Open the %@ page" = "%@ 페이지 열기";
 "Operation cancelled." = "작업을 취소했습니다.";
 "Percentage" = "퍼센트";
 "Preparing browser sign-in…" = "브라우저 로그인을 준비하는 중…";
@@ -153,7 +154,7 @@
 "Resets in %@" = "%@ 후 초기화";
 "Resets in less than 1m" = "1분 안에 초기화";
 "Resets soon" = "곧 초기화";
-"Restart AgentBar to show it in the chosen language." = "선택한 언어로 보려면 AgentBar를 다시 시작하세요.";
+"Restart %@ to show it in the chosen language." = "선택한 언어로 보려면 %@ 앱을 다시 시작하세요.";
 "Restart Now" = "지금 다시 시작";
 "Restore" = "복원";
 "Restore Original Groups…" = "원래 그룹 복원…";
@@ -172,8 +173,8 @@
 "Show the group name in front of its usage in the menu bar." = "메뉴 막대에서 사용량 앞에 그룹 이름을 보여 줍니다.";
 "Showing Claude Code live rate_limits from your active status line session." = "실행 중인 Claude Code 상태 표시줄의 실시간 한도를 보여 줍니다.";
 "Showing account-wide Anthropic usage API data." = "Anthropic 사용량 API의 계정 전체 값을 보여 줍니다.";
-"Sign in to connect this account to AgentBar in Settings › Accounts." = "설정 › 계정에서 로그인해 이 계정을 AgentBar에 연결하세요.";
-"Sign in using your usual browser. AgentBar keeps a separate sign-in for usage monitoring." = "평소 쓰는 브라우저로 로그인하세요. AgentBar는 사용량을 확인하기 위해 따로 로그인해 둡니다.";
+"Sign in to connect this account to %@ in Settings › Accounts." = "설정 › 계정에서 로그인해 이 계정을 %@에 연결하세요.";
+"Sign in using your usual browser. %@ keeps a separate sign-in for usage monitoring." = "평소 쓰는 브라우저로 로그인하세요. %@ 앱은 사용량을 확인하기 위해 따로 로그인해 둡니다.";
 "Sign-in required" = "로그인 필요";
 "Sign-in required · reconnect in Settings › Accounts" = "로그인 필요 · 설정 › 계정에서 다시 연결하세요";
 "Sign-in required. Reconnect the account." = "로그인이 필요합니다. 계정을 다시 연결하세요.";
@@ -187,7 +188,7 @@
 "The Claude account changed during sign-in refresh. Refresh again." = "로그인을 갱신하는 동안 Claude 계정이 바뀌었습니다. 다시 새로 고치세요.";
 "The account identity could not be verified automatically. Reconnect only if this is the same account." = "같은 계정인지 자동으로 확인하지 못했습니다. 같은 계정일 때만 다시 연결하세요.";
 "The badge itself fills up with usage." = "배지가 사용량만큼 채워집니다.";
-"The free version registers one account. AgentBar Pro registers more." = "무료 버전은 계정을 하나만 등록합니다. 더 많은 계정은 AgentBar Pro에서 등록할 수 있습니다.";
+"The free version registers one account. %@ registers more." = "무료 버전은 계정을 하나만 등록합니다. 더 많은 계정은 %@에서 등록할 수 있습니다.";
 "The line whose percentage appears beside the bars." = "막대 옆에 퍼센트를 보여 줄 줄입니다.";
 "The linked Claude account has changed. Reconnect to confirm it." = "연결된 Claude 계정이 바뀌었습니다. 다시 연결해 확인하세요.";
 "The linked account has changed. Reconnect to confirm the account." = "연결된 계정이 바뀌었습니다. 다시 연결해 계정을 확인하세요.";
@@ -202,7 +203,7 @@
 "This account was removed." = "이 계정은 삭제되었습니다.";
 "This is a different account from the one being reconnected. It can only be added as a new account." = "다시 연결하려던 계정과 다른 계정입니다. 새 계정으로만 추가할 수 있습니다.";
 "This is a different account. Add it as a new account." = "다른 계정입니다. 새 계정으로 추가하세요.";
-"This removes only the selected account’s AgentBar credentials and usage cache. External CLI sign-ins are preserved." = "선택한 계정의 AgentBar 자격 증명과 사용량 캐시만 삭제합니다. CLI 로그인은 그대로 남습니다.";
+"This removes only the selected account’s %@ credentials and usage cache. External CLI sign-ins are preserved." = "선택한 계정의 %@ 자격 증명과 사용량 캐시만 삭제합니다. CLI 로그인은 그대로 남습니다.";
 "This restores the original groups, account order, selected limits and display options. Your current layout is saved as a backup first." = "원래 그룹, 계정 순서, 선택한 한도, 표시 옵션으로 되돌립니다. 지금 배치는 먼저 백업해 둡니다.";
 "Unsupported Claude sign-in URL format." = "지원하지 않는 Claude 로그인 주소 형식입니다.";
 "Unsupported account settings version. The settings file was preserved." = "지원하지 않는 계정 설정 버전입니다. 설정 파일은 그대로 두었습니다.";

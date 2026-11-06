@@ -216,7 +216,7 @@ final class UsageStore: ObservableObject {
     }
     func snapshot(for account: UsageAccount) -> ProviderSnapshot {
         guard account.isManaged else {
-            return .placeholder(for: account.provider).failed(String(localized: "Sign in to connect this account to AgentBar in Settings › Accounts."), requiresLogin: true)
+            return .placeholder(for: account.provider).failed(String(localized: "Sign in to connect this account to \(AppInfo.name) in Settings › Accounts."), requiresLogin: true)
         }
         return snapshots[account.id] ?? .placeholder(for: account.provider)
     }
@@ -347,7 +347,7 @@ final class UsageStore: ObservableObject {
         return accounts.filter { !$0.deletionPending }.count < limit
     }
     static var accountLimitMessage: String {
-        String(localized: "The free version registers one account. AgentBar Pro registers more.")
+        String(localized: "The free version registers one account. \(AppInfo.proName) registers more.")
     }
 
     func startLogin(_ provider: ProviderKind, replacing: UsageAccount? = nil) {

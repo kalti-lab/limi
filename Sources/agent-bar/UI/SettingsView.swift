@@ -97,7 +97,7 @@ struct SettingsView: View {
                 if settings.language != AppLanguage.inUse && AppRelauncher.canRelaunch {
                     SettingsRow(divided: true) {
                         HStack {
-                            Text("Restart AgentBar to show it in the chosen language.")
+                            Text("Restart \(AppInfo.name) to show it in the chosen language.")
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             Button("Restart Now") { AppRelauncher.relaunch(reopeningSettings: true) }
@@ -118,7 +118,7 @@ struct SettingsView: View {
                 if launchAtLogin.needsApproval {
                     SettingsRow(divided: true) {
                         HStack {
-                            Text("Allow AgentBar in Login Items to finish turning this on.")
+                            Text("Allow \(AppInfo.name) in Login Items to finish turning this on.")
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             Button("Open Login Items") { launchAtLogin.openLoginItems() }

@@ -66,12 +66,12 @@ struct AccountManagementView: View {
         .sheet(isPresented: $choosingProvider) {
             AddAccountProviderSheet { provider in store.startLogin(provider) }
         }
-        .alert("Delete this account from AgentBar?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+        .alert("Delete this account from \(AppInfo.name)?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Cancel", role: .cancel) { deleting = nil }
             Button("Delete", role: .destructive) {
                 if let account = deleting { Task { await store.delete(account) } }; deleting = nil
             }
-        } message: { Text("This removes only the selected account’s AgentBar credentials and usage cache. External CLI sign-ins are preserved.") }
+        } message: { Text("This removes only the selected account’s \(AppInfo.name) credentials and usage cache. External CLI sign-ins are preserved.") }
     }
     private func row(_ account: UsageAccount, preview: Bool = false) -> some View {
         let snapshot = store.snapshot(for: account)
@@ -214,7 +214,7 @@ private struct AddAccountProviderSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Add Account").font(.title3.bold())
-                Text("Sign in using your usual browser. AgentBar keeps a separate sign-in for usage monitoring.")
+                Text("Sign in using your usual browser. \(AppInfo.name) keeps a separate sign-in for usage monitoring.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

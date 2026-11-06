@@ -41,7 +41,7 @@ struct MenuBarSettingsView: View {
                     if !store.edition.customizesMenuBar { ProBadge() }
                 }
                 if !store.edition.customizesMenuBar {
-                    Label("Customizing the menu bar is available in AgentBar Pro.", systemImage: "lock.fill")
+                    Label("Customizing the menu bar is available in \(AppInfo.proName).", systemImage: "lock.fill")
                         .font(.caption).foregroundStyle(.secondary)
                         .padding(.leading, SettingsStyle.rowInsets.leading)
                 }

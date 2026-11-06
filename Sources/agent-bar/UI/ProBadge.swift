@@ -8,9 +8,9 @@ struct ProBadge: View {
         if let url = AppEdition.purchaseURL {
             Button { NSWorkspace.shared.open(url) } label: { badge }
                 .buttonStyle(.plain)
-                .help("Open the AgentBar Pro page")
+                .help("Open the \(AppInfo.proName) page")
         } else {
-            badge.help("Available in AgentBar Pro")
+            badge.help("Available in \(AppInfo.proName)")
         }
     }
 
@@ -22,7 +22,7 @@ struct ProBadge: View {
             .padding(.horizontal, 5).padding(.vertical, 2)
             .background(LinearGradient(colors: [Color(red: 0.35, green: 0.66, blue: 1.0), Color(red: 0.48, green: 0.30, blue: 0.91)],
                                        startPoint: .leading, endPoint: .trailing), in: Capsule())
-            .accessibilityLabel(Text(verbatim: "AgentBar Pro"))
+            .accessibilityLabel(Text(verbatim: AppInfo.proName))
     }
 }
 
