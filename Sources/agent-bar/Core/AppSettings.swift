@@ -35,6 +35,12 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(refreshIntervalSeconds, forKey: Keys.refreshIntervalSeconds) }
     }
 
+    /// The interface language, English unless chosen otherwise. The app reads
+    /// it at launch; see AppLanguage.apply(to:).
+    @Published var language: AppLanguage {
+        didSet { defaults.set(language.rawValue, forKey: AppLanguage.defaultsKey) }
+    }
+
     @Published private(set) var providerSettings: [ProviderKind: ProviderDisplaySettings] = [:]
 
     let availableProviders: [ProviderKind]
@@ -46,6 +52,7 @@ final class AppSettings: ObservableObject {
 
         let storedInterval = defaults.object(forKey: Keys.refreshIntervalSeconds) as? Double ?? 120
         self.refreshIntervalSeconds = max(storedInterval, 60)
+        self.language = AppLanguage.stored(in: defaults)
 
         var settings: [ProviderKind: ProviderDisplaySettings] = [:]
         for provider in availableProviders {

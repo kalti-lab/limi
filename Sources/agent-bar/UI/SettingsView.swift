@@ -79,6 +79,33 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
+            SettingsSection("Language") {
+                SettingsRow {
+                    HStack {
+                        Text("Language")
+                        Spacer()
+                        Picker("Language", selection: Binding(get: { settings.language }, set: { language in
+                            settings.language = language
+                            language.apply()
+                        })) {
+                            ForEach(AppLanguage.allCases) { Text(verbatim: $0.nativeName).tag($0) }
+                        }.labelsHidden().fixedSize()
+                    }
+                }
+                // Text on screen keeps the language AgentBar started with, so a
+                // change applies on restart, all at once.
+                if settings.language != AppLanguage.inUse && AppRelauncher.canRelaunch {
+                    SettingsRow(divided: true) {
+                        HStack {
+                            Text("Restart AgentBar to show it in the chosen language.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Restart Now") { AppRelauncher.relaunch(reopeningSettings: true) }
+                                .disabled(store.isLoggingIn || store.pendingLogin != nil)
+                        }
+                    }
+                }
+            }
             SettingsSection("Startup") {
                 SettingsRow {
                     HStack {

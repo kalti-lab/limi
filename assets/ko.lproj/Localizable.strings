@@ -105,6 +105,7 @@
 "Invalid original layout." = "원래 배치가 올바르지 않습니다.";
 "Invalid usage URL" = "사용량 주소가 올바르지 않습니다";
 "Keychain cleanup is required for this account (%lld). Retry deletion." = "이 계정의 키체인 정리가 필요합니다(%lld). 삭제를 다시 시도하세요.";
+"Language" = "언어";
 "Limit" = "한도";
 "Loading usage…" = "사용량을 불러오는 중…";
 "Menu Bar" = "메뉴 막대";
@@ -146,6 +147,8 @@
 "Resets in %@" = "%@ 후 초기화";
 "Resets in less than 1m" = "1분 안에 초기화";
 "Resets soon" = "곧 초기화";
+"Restart AgentBar to show it in the chosen language." = "선택한 언어로 보려면 AgentBar를 다시 시작하세요.";
+"Restart Now" = "지금 다시 시작";
 "Restore" = "복원";
 "Restore Original Groups…" = "원래 그룹 복원…";
 "Restore the original menu bar layout?" = "원래 메뉴 막대 배치로 복원하시겠습니까?";

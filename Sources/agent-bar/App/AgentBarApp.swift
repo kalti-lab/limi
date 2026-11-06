@@ -15,7 +15,10 @@ final class AgentBarAppDelegate: NSObject, NSApplicationDelegate {
             store: AppContainer.shared.store,
             providers: AppContainer.shared.availableProviders
         )
-        if AppContainer.shared.settings.consumeDisplaySetupNotice() || !AppContainer.shared.store.accounts.contains(where: { $0.isManaged }) {
+        if AppRelauncher.takeReopenSettingsRequest() {
+            // Back where the language was changed, now in that language.
+            SettingsWindowController.shared.show(tab: .general)
+        } else if AppContainer.shared.settings.consumeDisplaySetupNotice() || !AppContainer.shared.store.accounts.contains(where: { $0.isManaged }) {
             SettingsWindowController.shared.show(tab: .accounts)
         }
     }
@@ -29,6 +32,16 @@ final class AgentBarAppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct AgentBarApp: App {
     @NSApplicationDelegateAdaptor(AgentBarAppDelegate.self) private var appDelegate
+
+    init() {
+        // Before any text is looked up, so this launch already uses the chosen
+        // language (English unless chosen) rather than the Mac's. The choice is
+        // read straight from defaults: building the app container first would
+        // look up text in the Mac's language.
+        let environment = ProcessInfo.processInfo.environment
+        let defaults = environment["AGENTBAR_DEFAULTS_SUITE"].flatMap(UserDefaults.init(suiteName:)) ?? .standard
+        AppLanguage.stored(in: defaults).apply()
+    }
 
     var body: some Scene {
         Settings {
