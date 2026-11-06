@@ -324,6 +324,44 @@ struct MenuBarLayoutTests {
         #expect(saved.valid && saved.layouts?.first?.rows.map(\.id) == [first.id, second.id])
     }
 
+    @Test func aSeparateBadgeTextBecomesTheGroupNameOnLoad() throws {
+        let f = try LayoutFixture(); defer { f.close() }
+        var config = f.store.displayConfiguration
+        var shown = MenuBarLayout(name: "Group 1", rows: [MenuBarLine(accountID: f.a.id, metricID: "weekly", slot: 0)])
+        shown.badgeMode = .common; shown.commonBadgeText = "CL"
+        var hidden = MenuBarLayout(name: "Work", rows: [MenuBarLine(accountID: f.b.id, metricID: "weekly", slot: 0)])
+        hidden.badgeMode = BadgeDisplayMode.none; hidden.commonBadgeText = "W"
+        config.layouts = [shown, hidden]
+        let path = f.files.root.appendingPathComponent("display-v2.json")
+        try f.files.write(config, to: path)
+        let loaded = UsageStore(settings: f.settings, files: f.files, autoRefresh: false)
+        defer { loaded.shutdown() }
+        let groups = try #require(loaded.displayConfiguration.layouts)
+        // The menu bar still reads "CL"; the hidden badge text is gone.
+        #expect(groups.map(\.name) == ["CL", "Work"])
+        #expect(groups.allSatisfy { $0.commonBadgeText == nil })
+        #expect(groups[0].renderingConfiguration(loaded.displayConfiguration).commonBadgeText == "CL")
+        #expect(try f.files.read(DisplayConfiguration.self, at: path).layouts?.map(\.name) == ["CL", "Work"])
+    }
+
+    @Test func multiBarPicksAndHidesItsPercentageOnTheLines() {
+        let account = UUID()
+        var group = MenuBarLayout(name: "CL", rows: [MenuBarLine(id: "a", accountID: account, metricID: "5h", slot: 0),
+                                                     MenuBarLine(id: "b", accountID: account, metricID: "weekly", slot: 1)])
+        #expect(group.showPercent && group.effectivePercentageLineID == "a")
+        group.togglePercentage("b")
+        #expect(group.showPercent && group.effectivePercentageLineID == "b")
+        group.togglePercentage("b")
+        #expect(!group.showPercent)
+        group.togglePercentage("a")
+        #expect(group.showPercent && group.effectivePercentageLineID == "a")
+    }
+
+    @Test func accountChoicesNameTheProviderOnlyWhenTheNameDoesNot() {
+        #expect(ProviderKind.claude.accountChoiceTitle("Claude 2") == "Claude 2")
+        #expect(ProviderKind.codex.accountChoiceTitle("Work") == "Work · Codex")
+    }
+
     @Test func textRowsStayContiguousAfterAccountRemovalAndCanAppendAgain() throws {
         let f = try LayoutFixture(); defer { f.close() }
         var config = f.store.displayConfiguration

@@ -29,6 +29,8 @@ enum BadgeDisplayMode: String, Codable, CaseIterable, Identifiable {
 
 struct MenuBarLayout: Codable, Equatable, Identifiable {
     static let maximumLines = 3
+    /// The name is also the group's menu bar badge, so it keeps the badge's length.
+    static let nameLimit = 24
     var id = UUID()
     var name = "Group"
     var enabled = true
@@ -81,6 +83,16 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
         }.map(\.element)
         for index in rows.indices { rows[index].slot = index }
     }
+    /// Multi Bar picks its percentage on the lines themselves: choosing the
+    /// shown line again hides the percentage, choosing another shows that one.
+    mutating func togglePercentage(_ lineID: String) {
+        if showPercent && effectivePercentageLineID == lineID {
+            showPercent = false
+        } else {
+            showPercent = true
+            percentageLineID = lineID
+        }
+    }
     mutating func moveLine(_ id: String, offset: Int) {
         if style == .text { compactLineSlots() }
         for i in rows.indices where rows[i].slot == nil { rows[i].slot = i }
@@ -107,6 +119,18 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
 }
 
 extension DisplayConfiguration {
+    /// A group's badge is its name. Older settings kept separate badge text:
+    /// a shown badge becomes the name so the menu bar reads the same, and a
+    /// hidden one is dropped.
+    mutating func mergeGroupLabels() {
+        guard layouts != nil else { return }
+        for index in layouts!.indices {
+            guard let text = layouts![index].commonBadgeText else { continue }
+            let label = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if layouts![index].effectiveBadgeMode.includesCommon && !label.isEmpty { layouts![index].name = label }
+            layouts![index].commonBadgeText = nil
+        }
+    }
     mutating func normalizeTextLineSlots() {
         guard layouts != nil else { return }
         for index in layouts!.indices where layouts![index].style == .text {

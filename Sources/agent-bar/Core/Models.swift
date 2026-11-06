@@ -43,6 +43,12 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
         }
     }
 
+    /// An account as a usage line names it: the provider is added only when the
+    /// account's name does not already say it.
+    func accountChoiceTitle(_ label: String) -> String {
+        label.localizedCaseInsensitiveContains(displayName) ? label : "\(label) · \(displayName)"
+    }
+
     /// What adding an account shows, said for the person choosing one.
     var accountSummary: String {
         switch self {

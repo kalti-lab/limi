@@ -88,6 +88,7 @@ final class UsageStore: ObservableObject {
                 let original = loaded
                 loaded.limitLayoutSizes()
                 loaded.normalizeTextLineSlots()
+                loaded.mergeGroupLabels()
                 if loaded.layouts != nil { loaded.freezeBadgeLabels() }
                 if loaded != original {
                     try FileManager.default.copyItem(at: displayURL, to: files.root.appendingPathComponent("display-before-three-lines-\(UUID()).json"))
