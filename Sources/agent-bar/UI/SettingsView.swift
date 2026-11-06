@@ -5,9 +5,9 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .accounts: return "Accounts"
-        case .menuBar: return "Menu Bar"
-        case .general: return "General"
+        case .accounts: return String(localized: "Accounts")
+        case .menuBar: return String(localized: "Menu Bar")
+        case .general: return String(localized: "General")
         }
     }
 }

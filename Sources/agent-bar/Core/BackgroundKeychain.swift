@@ -26,9 +26,9 @@ enum BackgroundKeychain {
         var errorDescription: String? {
             switch self {
             case .authorizationRequired:
-                return "The saved credential is unavailable. Reconnect this account to read its usage."
+                return String(localized: "The saved credential is unavailable. Reconnect this account to read its usage.")
             case .failed(let status):
-                return "Could not read the Claude credential (Keychain status \(status))."
+                return String(localized: "Could not read the Claude credential (Keychain status \(Int(status))).")
             }
         }
     }

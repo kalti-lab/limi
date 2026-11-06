@@ -148,7 +148,7 @@ final class StatusBarController {
         dragSurface?.groupID = id
         panel.rootView = AccountPopoverRoot(accountIDs: [], groupID: id, store: store)
     }
-    func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = "Group") {
+    func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = String(localized: "Group")) {
         self.entries = entries
         lastApplied = (config, explicitRows, name)
         let image = DisplayStatusRenderer.render(entries: entries, config: config,
@@ -157,7 +157,9 @@ final class StatusBarController {
         statusItem.length = image.size.width
         statusItem.button?.image = image
         dragSurface?.badgeImage = image
-        let description = entries.isEmpty ? "\(name) · Click to add a usage line" : entries.map { "\($0.account.title) · \($0.metric.title): \($0.percentage)\($0.stale ? " (cached)" : "")" }.joined(separator: "\n")
+        let description = entries.isEmpty ? String(localized: "\(name) · Click to add a usage line") : entries.map {
+            "\($0.account.title) · \($0.metric.localizedTitle): \($0.percentage)" + ($0.stale ? " " + String(localized: "(cached)") : "")
+        }.joined(separator: "\n")
         let common = config.commonBadgeText.flatMap { $0.isEmpty ? nil : $0 }
         let accessibleDescription = common.map { $0 + "\n" + description } ?? description
         statusItem.button?.toolTip = accessibleDescription

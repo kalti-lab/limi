@@ -19,7 +19,7 @@ struct WindowCard: View {
             ProgressView(value: min(window.utilization ?? 0, 1))
 
             if window.utilization == nil {
-                Text(unavailableMessage ?? "Usage data is unavailable.")
+                Text(unavailableMessage ?? String(localized: "Usage data is unavailable."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {

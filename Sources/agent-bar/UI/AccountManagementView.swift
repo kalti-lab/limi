@@ -251,9 +251,11 @@ struct LoginProgressView: View {
                 Button("Use Private Window Instead") { store.openPrivateLogin() }
             }
             if let pending = store.pendingLogin {
-                Text(pending.account.identity?.description.isEmpty == false
-                     ? pending.account.identity!.description : "The provider did not return account details.")
-                    .font(.headline).textSelection(.enabled)
+                if let identity = pending.account.identity?.description, !identity.isEmpty {
+                    Text(verbatim: identity).font(.headline).textSelection(.enabled)
+                } else {
+                    Text("The provider did not return account details.").font(.headline)
+                }
                 if pending.replacing != nil {
                     if store.reconnectionComparison == .different {
                         Text("This is a different account from the one being reconnected. It can only be added as a new account.")

@@ -95,13 +95,13 @@ struct AccountFiles: Sendable {
     func load() throws -> AccountRegistry {
         guard FileManager.default.fileExists(atPath: registryURL.path) else { return AccountRegistry() }
         let registry = try read(AccountRegistry.self, at: registryURL)
-        guard registry.version == 1 else { throw AccountError.message("Unsupported account settings version. The settings file was preserved.") }
+        guard registry.version == 1 else { throw AccountError.message(String(localized: "Unsupported account settings version. The settings file was preserved.")) }
         guard Set(registry.accounts.map(\.id)).count == registry.accounts.count else {
-            throw AccountError.message("Duplicate account IDs in settings. The settings file was preserved.")
+            throw AccountError.message(String(localized: "Duplicate account IDs in settings. The settings file was preserved."))
         }
         let credentialIDs = registry.accounts.compactMap(\.credentialID)
         guard Set(credentialIDs).count == credentialIDs.count else {
-            throw AccountError.message("Multiple accounts reference the same credential directory. The settings file was preserved.")
+            throw AccountError.message(String(localized: "Multiple accounts reference the same credential directory. The settings file was preserved."))
         }
         return registry
     }
@@ -133,7 +133,7 @@ struct AccountFiles: Sendable {
                 status = remaining == errSecItemNotFound ? errSecItemNotFound : (remaining == errSecSuccess ? errSecInvalidOwnerEdit : remaining)
             }
             guard status == errSecSuccess || status == errSecItemNotFound else {
-                throw AccountError.message("Keychain cleanup is required for this account (\(status)). Retry deletion.")
+                throw AccountError.message(String(localized: "Keychain cleanup is required for this account (\(Int(status))). Retry deletion."))
             }
         }
         if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
@@ -170,10 +170,10 @@ enum AccountError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .message(let message): return message
-        case .loginRequired: return "Sign-in required. Reconnect the account."
-        case .cancelled: return "Operation cancelled."
-        case .rateLimited: return "Rate limited. Retrying after the required delay."
-        case .timeout: return "The request timed out. Please try again."
+        case .loginRequired: return String(localized: "Sign-in required. Reconnect the account.")
+        case .cancelled: return String(localized: "Operation cancelled.")
+        case .rateLimited: return String(localized: "Rate limited. Retrying after the required delay.")
+        case .timeout: return String(localized: "The request timed out. Please try again.")
         }
     }
 }

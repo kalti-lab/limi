@@ -63,7 +63,7 @@ struct MenuBarSettingsView: View {
                     groupLabel(group)
                 }
                 .buttonStyle(GroupTabStyle(selected: selected?.id == group.id))
-                .help(group.name + (group.enabled ? "" : " · hidden") + " · Drag to reorder")
+                .help(group.enabled ? Text("\(group.name) · Drag to reorder") : Text("\(group.name) · hidden · Drag to reorder"))
                 .accessibilityAddTraits(selected?.id == group.id ? .isSelected : [])
                 .highPriorityGesture(DragGesture(minimumDistance: 4, coordinateSpace: .named("group-order"))
                     .onChanged { value in
@@ -85,7 +85,7 @@ struct MenuBarSettingsView: View {
                 .animation(.snappy(duration: 0.18), value: groupDrag?.target)
             }
             Button {
-                let group = MenuBarLayout(name: "Group \(groups.count + 1)")
+                let group = MenuBarLayout(name: String(localized: "Group \(groups.count + 1)"))
                 store.updateDisplay { $0.editLayouts { $0.append(group) } }
                 store.selectMenuBarGroup(group.id)
             } label: { Image(systemName: "plus") }
@@ -104,7 +104,7 @@ struct MenuBarSettingsView: View {
     private func groupLabel(_ group: MenuBarLayout) -> some View {
         HStack(spacing: 4) {
             if !group.enabled { Image(systemName: "eye.slash") }
-            Text(group.name.isEmpty ? "Untitled" : group.name).lineLimit(1)
+            if group.name.isEmpty { Text("Untitled").lineLimit(1) } else { Text(verbatim: group.name).lineLimit(1) }
         }
     }
 
@@ -192,7 +192,7 @@ private struct MenuBarGroupEditor: View {
                     .buttonStyle(ChoiceButtonStyle(selected: group.style.selection == style))
                     .disabled(style != .text && group.style == .text && group.rows.count > MenuBarLayout.maximumLines)
                     .help(style != .text && group.style == .text && group.rows.count > MenuBarLayout.maximumLines
-                          ? "Remove values until three remain to use this style." : style.summary)
+                          ? String(localized: "Remove values until three remain to use this style.") : style.summary)
                     .accessibilityLabel(style.title)
                     .accessibilityAddTraits(group.style.selection == style ? .isSelected : [])
                 }
@@ -280,21 +280,21 @@ private struct MenuBarGroupEditor: View {
         return MenuBarLayout.maximumLines
     }
     private var usageLinesTitle: String {
-        if group.style == .ring { return "Usage line" }
-        if group.style == .text { return "Usage values · \(group.rows.count)" }
-        return "Usage lines · \(group.rows.count)/\(MenuBarLayout.maximumLines)"
+        if group.style == .ring { return String(localized: "Usage line") }
+        if group.style == .text { return String(localized: "Usage values · \(group.rows.count)") }
+        return String(localized: "Usage lines · \(group.rows.count)/\(MenuBarLayout.maximumLines)")
     }
     // Shown only while there is something to learn: an empty group, or lines
     // that Ring Gauge leaves out.
     private var usageLinesHint: String? {
         if group.style == .ring && group.rows.count > 1 {
-            return "Ring Gauge shows only the first line. Choose Multi Bar or Capsule Fill for up to three lines, or Text Only for more."
+            return String(localized: "Ring Gauge shows only the first line. Choose Multi Bar or Capsule Fill for up to three lines, or Text Only for more.")
         }
         guard group.rows.isEmpty else { return nil }
         switch group.style {
-        case .ring: return "Ring Gauge shows a single line. Click + to choose it."
-        case .text: return "Each value can come from any account. Click + to add one."
-        default: return "Each line shows one limit of one account; lines can come from different accounts. Click + in an empty slot to add a line."
+        case .ring: return String(localized: "Ring Gauge shows a single line. Click + to choose it.")
+        case .text: return String(localized: "Each value can come from any account. Click + to add one.")
+        default: return String(localized: "Each line shows one limit of one account; lines can come from different accounts. Click + in an empty slot to add a line.")
         }
     }
     private func lineIndex(for slot: Int) -> Int? {
@@ -309,10 +309,10 @@ private struct MenuBarGroupEditor: View {
         let titles = group.displayedRows.map { row -> String in
             let account = store.accounts.first { $0.id == row.accountID }
             let metric = account.flatMap { account in DisplayMetric.all(store.snapshot(for: account)).first { $0.id == row.metricID } }
-            return "\(account.map { store.accountLabel(for: $0) } ?? "Account") · \(metric?.choiceTitle ?? row.metricID)"
+            return "\(account.map { store.accountLabel(for: $0) } ?? String(localized: "Account")) · \(metric?.choiceTitle ?? row.metricID)"
         }
         return zip(group.displayedRows, titles).enumerated().map { index, pair in
-            (pair.0.id, titles.filter { $0 == pair.1 }.count > 1 ? "\(pair.1) (line \(index + 1))" : pair.1)
+            (pair.0.id, titles.filter { $0 == pair.1 }.count > 1 ? String(localized: "\(pair.1) (line \(index + 1))") : pair.1)
         }
     }
     private func lineEditor(at index: Int, preview: Bool = false) -> some View {
@@ -492,8 +492,8 @@ private struct MenuBarLineEditor: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(ChoiceButtonStyle(selected: line.metricID == metric.id))
-        .help(metric.title + (metric.window?.utilization == nil ? " · no data yet" : ""))
-        .accessibilityLabel(metric.title)
+        .help(metric.window?.utilization == nil ? String(localized: "\(metric.localizedTitle) · no data yet") : metric.localizedTitle)
+        .accessibilityLabel(metric.localizedTitle)
         .accessibilityAddTraits(line.metricID == metric.id ? .isSelected : [])
     }
     private func move(_ offset: Int) {

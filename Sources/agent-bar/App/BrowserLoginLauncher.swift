@@ -47,13 +47,13 @@ final class BrowserLoginLauncher: NSObject, ASWebAuthenticationPresentationConte
         close()
         guard url.scheme == "https", url.host != nil else {
             control.cancel()
-            failed("The provider returned an invalid sign-in URL.")
+            failed(String(localized: "The provider returned an invalid sign-in URL."))
             return
         }
         if mode == .standard {
             guard openURL(Self.accountSelectionURL(url)) else {
                 control.cancel()
-                failed("Could not open your browser. Check the default browser setting and try again.")
+                failed(String(localized: "Could not open your browser. Check the default browser setting and try again."))
                 return
             }
             return
@@ -70,7 +70,7 @@ final class BrowserLoginLauncher: NSObject, ASWebAuthenticationPresentationConte
                 if let error = error as? ASWebAuthenticationSessionError, error.code == .canceledLogin {
                     cancelled()
                 } else {
-                    failed("The sign-in window closed before sign-in completed. Please try again.")
+                    failed(String(localized: "The sign-in window closed before sign-in completed. Please try again."))
                 }
             }
         }
@@ -80,7 +80,7 @@ final class BrowserLoginLauncher: NSObject, ASWebAuthenticationPresentationConte
         guard session.start() else {
             close()
             control.cancel()
-            failed("Could not open a private sign-in window. Try again with the Accounts settings window open.")
+            failed(String(localized: "Could not open a private sign-in window. Try again with the Accounts settings window open."))
             return
         }
     }

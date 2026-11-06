@@ -1,7 +1,9 @@
 import Foundation
 
 enum TokenFormatters {
-    private static let displayLocale = Locale(identifier: "en_US")
+    // Times read in the language the app is shown in: English by default,
+    // Korean when the Mac prefers it, so "2 min. ago" never sits in Korean text.
+    private static let displayLocale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en_US")
 
     private static func makeRelativeFormatter() -> RelativeDateTimeFormatter {
         let formatter = RelativeDateTimeFormatter()
@@ -44,22 +46,23 @@ enum TokenFormatters {
     }
 
     static func resetLabelString(from now: Date = .now, resetAt: Date?) -> String {
-        guard let resetAt else { return "No reset time" }
+        guard let resetAt else { return String(localized: "No reset time") }
 
         let interval = resetAt.timeIntervalSince(now)
         if interval <= 0 {
-            return "Resets soon"
+            return String(localized: "Resets soon")
         }
 
         if interval < 60 {
-            return "Resets in less than 1m"
+            return String(localized: "Resets in less than 1m")
         }
 
         if let formatted = makeCountdownFormatter().string(from: interval), formatted.isEmpty == false {
-            return "Resets in \(formatted)"
+            return String(localized: "Resets in \(formatted)")
         }
 
-        return "Resets in \(makeRelativeFormatter().localizedString(for: resetAt, relativeTo: now))"
+        // The relative phrase already says "in 3 days", so it follows "Resets" directly.
+        return String(localized: "Resets \(makeRelativeFormatter().localizedString(for: resetAt, relativeTo: now))")
     }
 
     static func timeString(_ date: Date) -> String {
@@ -81,7 +84,7 @@ enum TokenFormatters {
     static func relativeUpdateString(from now: Date = .now, updatedAt: Date) -> String {
         let interval = abs(now.timeIntervalSince(updatedAt))
         if interval < 5 {
-            return "just now"
+            return String(localized: "just now")
         }
         return makeRelativeFormatter().localizedString(for: updatedAt, relativeTo: now)
     }

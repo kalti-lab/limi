@@ -30,7 +30,7 @@ final class SettingsWindowController {
                 MainActor.assumeIsolated { self?.keepOnScreen() }
             }
         } else { window?.contentViewController = controller }
-        window?.title = "AgentBar — Settings"
+        window?.title = String(localized: "AgentBar — Settings")
         // The window fits the tab it opens on; switching tabs resizes it from there.
         window?.setContentSize(controller.view.fittingSize)
         // Place only after sizing: centering the still-unsized window left its

@@ -73,20 +73,20 @@ enum MenuBarStyle: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .badge: return "Name Badge"
-        case .ring: return "Ring Gauge"
-        case .capsule: return "Capsule Fill"
-        case .bars: return "Multi Bar"
-        case .text: return "Text Only"
+        case .badge: return String(localized: "Name Badge")
+        case .ring: return String(localized: "Ring Gauge")
+        case .capsule: return String(localized: "Capsule Fill")
+        case .bars: return String(localized: "Multi Bar")
+        case .text: return String(localized: "Text Only")
         }
     }
     var summary: String {
         switch self {
-        case .badge: return "Badge, one bar, percentage."
-        case .ring: return "A ring with a full-size percentage beside it."
-        case .capsule: return "The badge itself fills up with usage."
-        case .bars: return "One line per limit, up to three, each labelled account·limit."
-        case .text: return "Every usage percentage, arranged from left to right."
+        case .badge: return String(localized: "Badge, one bar, percentage.")
+        case .ring: return String(localized: "A ring with a full-size percentage beside it.")
+        case .capsule: return String(localized: "The badge itself fills up with usage.")
+        case .bars: return String(localized: "One line per limit, up to three, each labelled account·limit.")
+        case .text: return String(localized: "Every usage percentage, arranged from left to right.")
         }
     }
 }
@@ -282,7 +282,7 @@ struct DisplayConfiguration: Codable, Equatable {
             value.rowsPerColumn = min(6, max(1, item.maxRows))
         }
         value.layouts = legacy.items.enumerated().map { index, item in
-            MenuBarLayout(id: item.id, name: "Group \(index + 1)", enabled: index < legacy.activeCount,
+            MenuBarLayout(id: item.id, name: String(localized: "Group \(index + 1)"), enabled: index < legacy.activeCount,
                 style: .bars, showBadge: item.showService, showBar: item.showBars, showPercent: item.showPercent,
                 rowsPerColumn: min(3, max(1, item.maxRows)), rows: item.accountIDs.flatMap { id -> [MenuBarLine] in
                     guard let account = live.first(where: { $0.id == id }) else { return [] }
@@ -330,20 +330,36 @@ struct DisplayMetric: Identifiable {
         default: return String(title.prefix(3)).uppercased()
         }
     }
+    /// The metric's name as the popover and Settings show it. `title` stays
+    /// the English name the rest of the app reads.
+    var localizedTitle: String {
+        switch id {
+        case "5h": return String(localized: "5-Hour Session")
+        case "weekly": return String(localized: "Weekly Limit")
+        default: return String(localized: "\(modelName) Weekly")
+        }
+    }
     /// The name on a limit choice. Model limits say they are weekly.
     var choiceTitle: String {
         switch id {
-        case "5h": return "5 hours"
-        case "weekly": return "Weekly"
-        default: return title.replacingOccurrences(of: " Weekly", with: " weekly")
+        case "5h": return String(localized: "5 hours")
+        case "weekly": return String(localized: "Weekly")
+        default: return String(localized: "\(modelName) weekly")
         }
     }
     /// The same name without the window, for rows too narrow for it.
     var compactChoiceTitle: String {
         switch id {
         case "5h", "weekly": return choiceTitle
-        default: return title.replacingOccurrences(of: " Weekly", with: "")
+        default: return modelName
         }
+    }
+    /// A model limit's model, from its title ("Fable Weekly") or, for a line
+    /// whose data has not loaded, its id ("model:fable").
+    private var modelName: String {
+        if title.hasSuffix(" Weekly") { return String(title.dropLast(" Weekly".count)) }
+        if id.hasPrefix("model:") { return String(id.dropFirst("model:".count)).capitalized }
+        return title
     }
     static func all(_ snapshot: ProviderSnapshot) -> [Self] {
         var result = [Self(id: "5h", title: "5-Hour Session", window: snapshot.fiveHour), Self(id: "weekly", title: "Weekly Limit", window: snapshot.weekly)]

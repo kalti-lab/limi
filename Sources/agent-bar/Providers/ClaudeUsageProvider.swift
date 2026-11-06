@@ -28,7 +28,7 @@ struct ClaudeUsageProvider: UsageProviding {
                 if let expectedIdentity {
                     let current = try statusReader(directory, control)
                     if current.comparison(to: expectedIdentity) == .different {
-                        throw AccountError.message("The linked Claude account has changed. Reconnect to confirm it.")
+                        throw AccountError.message(String(localized: "The linked Claude account has changed. Reconnect to confirm it."))
                     }
                 }
                 try control.checkCancellation()
@@ -40,7 +40,7 @@ struct ClaudeUsageProvider: UsageProviding {
                 }
                 let remoteResult = try await resolveRemoteUsage(credentials: credentials)
                 guard credentials.cacheKey == (try readCredentials().cacheKey) else {
-                    throw AccountError.message("The CLI account changed during the request. Refresh again.")
+                    throw AccountError.message(String(localized: "The CLI account changed during the request. Refresh again."))
                 }
                 let modelWeeklies: [ModelWeeklySummary] = (remoteResult.data.modelWeeklies ?? []).map { cached in
                     ModelWeeklySummary(
@@ -83,8 +83,8 @@ struct ClaudeUsageProvider: UsageProviding {
                     planName: nil,
                     sourceDescription: "Anthropic OAuth usage API + cache",
                     note: requiresLogin
-                        ? "Sign-in required. Reconnect this account in Settings › Accounts."
-                        : "Couldn't read Anthropic account usage: \(error.localizedDescription)",
+                        ? String(localized: "Sign-in required. Reconnect this account in Settings › Accounts.")
+                        : String(localized: "Couldn't read Anthropic account usage: \(error.localizedDescription)"),
                     isStale: true,
                     requiresLogin: requiresLogin
                 )
@@ -201,23 +201,23 @@ struct ClaudeUsageProvider: UsageProviding {
     private func note(for data: RemoteUsageData) -> String {
         if data.apiUnavailable {
             if Self.requiresLogin(for: data.apiError) {
-                return "Claude login required. Sign in to Claude Code, then refresh."
+                return String(localized: "Claude login required. Sign in to Claude Code, then refresh.")
             }
             if data.apiError == "rate-limited" {
-                return "The Anthropic usage API is rate-limited. Showing the last known good value and retrying automatically."
+                return String(localized: "The Anthropic usage API is rate-limited. Showing the last known good value and retrying automatically.")
             }
-            return "Couldn't read the Anthropic usage API (\(data.apiError ?? "unknown"))."
+            return String(localized: "Couldn't read the Anthropic usage API (\(data.apiError ?? "unknown")).")
         }
         switch data.usageSource {
         case .statusLine:
-            return "Showing Claude Code live rate_limits from your active status line session."
+            return String(localized: "Showing Claude Code live rate_limits from your active status line session.")
         case .oauthApi:
             if let weeklyWindowLabel = data.weeklyWindowLabel {
-                return "Anthropic did not return an account-wide weekly window, so Weekly is following the \(weeklyWindowLabel) window."
+                return String(localized: "Anthropic did not return an account-wide weekly window, so Weekly is following the \(weeklyWindowLabel) window.")
             }
-            return "Showing account-wide Anthropic usage API data."
+            return String(localized: "Showing account-wide Anthropic usage API data.")
         case nil:
-            return "Showing account-wide Anthropic usage API data."
+            return String(localized: "Showing account-wide Anthropic usage API data.")
         }
     }
 
@@ -608,9 +608,9 @@ private enum ClaudeUsageError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "Invalid usage URL"
+            return String(localized: "Invalid usage URL")
         case .missingCredentials:
-            return "Couldn't find a Claude OAuth token."
+            return String(localized: "Couldn't find a Claude OAuth token.")
         }
     }
 }

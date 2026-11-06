@@ -33,7 +33,7 @@ final class LaunchAtLogin: ObservableObject {
         do {
             if on { try item.register() } else { try item.unregister() }
         } catch {
-            errorMessage = "Could not change Open at Login: \(error.localizedDescription)"
+            errorMessage = String(localized: "Could not change Open at Login: \(error.localizedDescription)")
         }
         refresh()
     }

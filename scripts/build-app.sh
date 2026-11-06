@@ -45,6 +45,9 @@ mkdir -p "$bundle_path/Contents/Resources"
 cp "$binary_path" "$bundle_path/Contents/MacOS/agent-bar"
 # App icon; regenerate with scripts/make-app-icon.swift.
 cp "$repo_dir/assets/AppIcon.icns" "$bundle_path/Contents/Resources/AppIcon.icns"
+# Korean UI; English is the text in the code. See assets/ko.lproj.
+cp -R "$repo_dir/assets/ko.lproj" "$bundle_path/Contents/Resources/ko.lproj"
+mkdir -p "$bundle_path/Contents/Resources/en.lproj"
 
 cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -53,6 +56,11 @@ cat > "$bundle_path/Contents/Info.plist" <<'PLIST'
 <dict>
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>ko</string>
+  </array>
   <key>CFBundleDisplayName</key>
   <string>AgentBar</string>
   <key>CFBundleExecutable</key>

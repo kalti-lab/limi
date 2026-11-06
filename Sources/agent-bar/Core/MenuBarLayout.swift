@@ -32,7 +32,7 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
     /// The name is also the group's menu bar badge, so it keeps the badge's length.
     static let nameLimit = 24
     var id = UUID()
-    var name = "Group"
+    var name = String(localized: "Group")
     var enabled = true
     var style: MenuBarStyle = .bars
     var showBadge = true // Legacy visibility; used only until a badge mode is chosen.
@@ -150,7 +150,7 @@ extension DisplayConfiguration {
             let lines = metrics.map { MenuBarLine(id: id.uuidString + ":" + $0, accountID: id, metricID: $0) }
             if let index = result.firstIndex(where: { $0.id == key }) { result[index].rows += lines }
             else {
-                result.append(MenuBarLayout(id: key, name: display.group > 0 ? "Group \(display.group)" : display.badge,
+                result.append(MenuBarLayout(id: key, name: display.group > 0 ? String(localized: "Group \(display.group)") : display.badge,
                     style: style, showBadge: showBadge, showBar: showBar, showPercent: showPercent,
                     rowsPerColumn: min(3, max(1, rowsPerColumn)), rows: lines))
             }

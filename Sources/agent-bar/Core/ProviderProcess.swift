@@ -70,14 +70,14 @@ final class ProcessSession: @unchecked Sendable {
         defer { condition.unlock() }
         while true {
             if control.cancelled { throw AccountError.cancelled }
-            if overflow { throw AccountError.message("The CLI response exceeded the size limit.") }
+            if overflow { throw AccountError.message(String(localized: "The CLI response exceeded the size limit.")) }
             if let end = buffer.firstIndex(of: 0x0a) {
                 let result = Data(buffer[..<end]); buffer.removeSubrange(...end)
                 return result
             }
             if ended {
                 if !buffer.isEmpty { let result = buffer; buffer.removeAll(); return result }
-                throw AccountError.message("The CLI connection closed. Check the installation and sign-in status.")
+                throw AccountError.message(String(localized: "The CLI connection closed. Check the installation and sign-in status."))
             }
             if Date() >= deadline { throw AccountError.timeout }
             _ = condition.wait(until: min(deadline, Date().addingTimeInterval(0.1)))
@@ -91,7 +91,7 @@ final class ProcessSession: @unchecked Sendable {
         while true {
             if control.cancelled { throw AccountError.cancelled }
             if overflow || result.count + buffer.count > 2_000_000 {
-                throw AccountError.message("The CLI response is too large.")
+                throw AccountError.message(String(localized: "The CLI response is too large."))
             }
             result.append(buffer); buffer.removeAll()
             if ended && !process.isRunning { return result }
@@ -141,7 +141,7 @@ enum ProviderCLI {
         if provider == .claude { paths += [home.appendingPathComponent(".local/bin/claude").path] }
         paths += [home.appendingPathComponent(".bun/bin/\(provider == .codex ? "codex" : "claude")").path]
         guard let path = paths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            throw AccountError.message("Could not find the \(provider.displayName) CLI. Install the official CLI and try again.")
+            throw AccountError.message(String(localized: "Could not find the \(provider.displayName) CLI. Install the official CLI and try again."))
         }
         return URL(fileURLWithPath: path).resolvingSymlinksInPath()
     }
@@ -239,7 +239,7 @@ final class CodexRPC {
                     }
                     // Avoid surfacing raw provider payloads/credentials.
                     if method == "account/rateLimits/read" { throw AccountError.message("Could not load Codex usage. Check your sign-in status.") }
-                    throw AccountError.message("Codex request failed: \(method).")
+                    throw AccountError.message(String(localized: "Codex request failed: \(method)."))
                 }
                 return value["result"] as? [String: Any] ?? [:]
             }
@@ -260,7 +260,7 @@ final class CodexRPC {
               let raw = result["authUrl"] as? String, let url = URL(string: raw),
               url.scheme == "https", let host = url.host,
               host == "auth.openai.com" || host.hasSuffix(".openai.com") else {
-            throw AccountError.message("Codex did not return a valid official sign-in URL.")
+            throw AccountError.message(String(localized: "Codex did not return a valid official sign-in URL."))
         }
         openURL(url)
         do {
@@ -275,7 +275,7 @@ final class CodexRPC {
                 }
                 guard value["method"] as? String == "account/login/completed",
                       let params = value["params"] as? [String: Any], params["loginId"] as? String == loginID else { continue }
-                guard params["success"] as? Bool == true else { throw AccountError.message("Codex sign-in did not complete.") }
+                guard params["success"] as? Bool == true else { throw AccountError.message(String(localized: "Codex sign-in did not complete.")) }
                 return try identity()
             }
         } catch {

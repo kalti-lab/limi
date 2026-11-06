@@ -36,19 +36,19 @@ actor ClaudeCredentialRefresher {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (responseData, response) = try await transport(request)
         guard let response = response as? HTTPURLResponse else {
-            throw AccountError.message("Could not refresh Claude sign-in. Please try again.")
+            throw AccountError.message(String(localized: "Could not refresh Claude sign-in. Please try again."))
         }
         switch response.statusCode {
         case 200: break
         case 400, 401, 403: throw AccountError.loginRequired
         case 429: throw AccountError.rateLimited(60)
-        default: throw AccountError.message("Claude sign-in refresh is temporarily unavailable. Please try again.")
+        default: throw AccountError.message(String(localized: "Claude sign-in refresh is temporarily unavailable. Please try again."))
         }
         guard let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
               let accessToken = result["access_token"] as? String, !accessToken.isEmpty,
               let lifetime = result["expires_in"] as? Double, lifetime.isFinite, lifetime > 0,
               lifetime < 365 * 24 * 60 * 60 else {
-            throw AccountError.message("Claude returned an invalid sign-in refresh response.")
+            throw AccountError.message(String(localized: "Claude returned an invalid sign-in refresh response."))
         }
         oauth["accessToken"] = accessToken
         oauth["expiresAt"] = Int((Date().timeIntervalSince1970 + lifetime) * 1000)
@@ -57,7 +57,7 @@ actor ClaudeCredentialRefresher {
         document["claudeAiOauth"] = oauth
         // Never recreate a deleted account or overwrite a changed credential.
         guard try Data(contentsOf: file) == data else {
-            throw AccountError.message("The Claude account changed during sign-in refresh. Refresh again.")
+            throw AccountError.message(String(localized: "The Claude account changed during sign-in refresh. Refresh again."))
         }
         // Persist a rotated token even if the UI cancelled during the exchange;
         // dropping it would force an unnecessary browser login next time. Polling

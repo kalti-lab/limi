@@ -53,9 +53,9 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
     var accountSummary: String {
         switch self {
         case .claude:
-            return "5-hour and weekly limits of your Claude plan"
+            return String(localized: "5-hour and weekly limits of your Claude plan")
         case .codex:
-            return "5-hour and weekly limits of your ChatGPT plan"
+            return String(localized: "5-hour and weekly limits of your ChatGPT plan")
         }
     }
 }
@@ -125,7 +125,7 @@ struct ProviderSnapshot: Equatable, Codable, Sendable {
         fiveHour ?? weekly
     }
 
-    static let notLoadedNote = "Account usage has not loaded yet."
+    static let notLoadedNote = String(localized: "Account usage has not loaded yet.")
 
     static func placeholder(for provider: ProviderKind) -> ProviderSnapshot {
         ProviderSnapshot(

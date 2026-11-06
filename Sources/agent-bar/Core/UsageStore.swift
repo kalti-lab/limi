@@ -63,7 +63,7 @@ final class UsageStore: ObservableObject {
             // layouts, but require a separate login before any usage is read.
             for account in loaded.accounts where account.isManaged && !account.deletionPending {
                 if let cached = try? files.read(ProviderSnapshot.self, at: lastGoodURL(account)) {
-                    snapshots[account.id] = cached.failed("Cached usage. Checking for an update.")
+                    snapshots[account.id] = cached.failed(String(localized: "Cached usage. Checking for an update."))
                 }
             }
         } catch { storageUnavailable = true; errorMessage = error.localizedDescription }
@@ -78,6 +78,7 @@ final class UsageStore: ObservableObject {
         }
     }
 
+    private static let hiddenAccountNote = String(localized: "Hidden account. Refresh is paused.")
     private var displayURL: URL { files.root.appendingPathComponent("display-v2.json") }
     private var legacyDisplayURL: URL { files.root.appendingPathComponent("display-v1.json") }
     private var liveAccounts: [UsageAccount] { accounts.filter { !$0.deletionPending } }
@@ -93,13 +94,13 @@ final class UsageStore: ObservableObject {
                 if loaded != original {
                     try FileManager.default.copyItem(at: displayURL, to: files.root.appendingPathComponent("display-before-three-lines-\(UUID()).json"))
                 }
-                guard loaded.valid else { throw AccountError.message("Invalid display settings format.") }
+                guard loaded.valid else { throw AccountError.message(String(localized: "Invalid display settings format.")) }
                 displayConfiguration = loaded
                 updateDisplay { $0.sync(liveAccounts) }
             } else if FileManager.default.fileExists(atPath: legacyDisplayURL.path) {
                 // The item-based file stays untouched so the previous version can still read it.
                 let legacy = try files.read(LegacyDisplayConfiguration.self, at: legacyDisplayURL)
-                guard legacy.valid else { throw AccountError.message("Invalid original layout.") }
+                guard legacy.valid else { throw AccountError.message(String(localized: "Invalid original layout.")) }
                 displayConfiguration = .migrated(from: legacy, accounts: liveAccounts)
                 try files.write(displayConfiguration, to: displayURL)
             } else {
@@ -114,7 +115,7 @@ final class UsageStore: ObservableObject {
                     try FileManager.default.copyItem(at: displayURL, to: files.root.appendingPathComponent("display-preserved-\(UUID()).json"))
                 }
             } catch { displayWritable = false }
-            displayError = "Could not read display settings. Using defaults; the original was preserved."
+            displayError = String(localized: "Could not read display settings. Using defaults; the original was preserved.")
         }
     }
     var hasOriginalDisplayConfiguration: Bool {
@@ -124,7 +125,7 @@ final class UsageStore: ObservableObject {
         guard displayWritable else { return }
         do {
             let legacy = try files.read(LegacyDisplayConfiguration.self, at: legacyDisplayURL)
-            guard legacy.valid else { throw AccountError.message("Invalid original layout.") }
+            guard legacy.valid else { throw AccountError.message(String(localized: "Invalid original layout.")) }
             let restored = DisplayConfiguration.migrated(from: legacy, accounts: liveAccounts)
             if FileManager.default.fileExists(atPath: displayURL.path) {
                 try FileManager.default.copyItem(at: displayURL, to: files.root.appendingPathComponent("display-before-restore-\(UUID()).json"))
@@ -133,7 +134,7 @@ final class UsageStore: ObservableObject {
                 next.layouts = restored.layouts
                 for id in legacy.items.flatMap(\.accountIDs) { next.setVisible(id, true) }
             }
-        } catch { displayError = "Could not restore original groups: \(error.localizedDescription)" }
+        } catch { displayError = String(localized: "Could not restore original groups: \(error.localizedDescription)") }
     }
     func updateDisplay(_ change: (inout DisplayConfiguration) -> Void) {
         guard displayWritable else { return }
@@ -156,19 +157,19 @@ final class UsageStore: ObservableObject {
                 pendingRefreshIDs.remove(id)
                 if let snapshot = snapshots[id] {
                     if !snapshot.isStale && snapshot.retryAt == nil { nextEligibleRefresh[id] = nil }
-                    snapshots[id] = snapshot.failed("Hidden account. Refresh is paused.", requiresLogin: snapshot.requiresLogin)
+                    snapshots[id] = snapshot.failed(Self.hiddenAccountNote, requiresLogin: snapshot.requiresLogin)
                 }
             }
             let newlyVisible = current.subtracting(previous)
             for id in newlyVisible {
-                if let snapshot = snapshots[id], snapshot.note == "Hidden account. Refresh is paused." {
-                    snapshots[id] = snapshot.failed("Cached usage. Waiting for the next refresh.", requiresLogin: snapshot.requiresLogin)
+                if let snapshot = snapshots[id], snapshot.note == Self.hiddenAccountNote {
+                    snapshots[id] = snapshot.failed(String(localized: "Cached usage. Waiting for the next refresh."), requiresLogin: snapshot.requiresLogin)
                 }
             }
             updateRepresentatives()
             if automaticRefresh { requestRefresh(newlyVisible) }
         }
-        catch { displayError = "Could not save display settings: \(error.localizedDescription)" }
+        catch { displayError = String(localized: "Could not save display settings: \(error.localizedDescription)") }
     }
     var visibleAccounts: [UsageAccount] {
         displayConfiguration.visibleAccountIDs.compactMap { id in liveAccounts.first { $0.id == id } }
@@ -210,7 +211,7 @@ final class UsageStore: ObservableObject {
     }
     func snapshot(for account: UsageAccount) -> ProviderSnapshot {
         guard account.isManaged else {
-            return .placeholder(for: account.provider).failed("Sign in to connect this account to AgentBar in Settings › Accounts.", requiresLogin: true)
+            return .placeholder(for: account.provider).failed(String(localized: "Sign in to connect this account to AgentBar in Settings › Accounts."), requiresLogin: true)
         }
         return snapshots[account.id] ?? .placeholder(for: account.provider)
     }
@@ -221,7 +222,7 @@ final class UsageStore: ObservableObject {
     private func commit(_ value: AccountRegistry) -> Bool {
         guard !storageUnavailable else { return false }
         do { try files.write(value, to: files.registryURL); registry = value; updateDisplay { $0.sync(value.accounts.filter { !$0.deletionPending }) }; updateRepresentatives(); return true }
-        catch { errorMessage = "Could not save account settings: \(error.localizedDescription)"; return false }
+        catch { errorMessage = String(localized: "Could not save account settings: \(error.localizedDescription)"); return false }
     }
     func selectRepresentative(_ account: UsageAccount) {
         guard !account.deletionPending else { return }
@@ -319,7 +320,7 @@ final class UsageStore: ObservableObject {
             var display = result
             if result.isStale, account.isManaged, result.fiveHour?.utilization == nil, result.weekly?.utilization == nil,
                let previous = snapshots[account.id], previous.fiveHour?.utilization != nil || previous.weekly?.utilization != nil {
-                display = previous.failed(result.note ?? "Could not load usage", requiresLogin: result.requiresLogin)
+                display = previous.failed(result.note ?? String(localized: "Could not load usage"), requiresLogin: result.requiresLogin)
             }
             snapshots[account.id] = display
             nextEligibleRefresh[account.id] = result.retryAt ?? Date().addingTimeInterval(result.isStale ? 60 : 5)
@@ -338,14 +339,14 @@ final class UsageStore: ObservableObject {
         guard !isLoggingIn, pendingLogin == nil, !storageUnavailable else { return }
         do { _ = try ProviderCLI.executable(provider) }
         catch { errorMessage = error.localizedDescription; return }
-        let candidate = UsageAccount(id: UUID(), provider: provider, name: "New \(provider.displayName) account", credentialID: UUID())
+        let candidate = UsageAccount(id: UUID(), provider: provider, name: String(localized: "New \(provider.displayName) account"), credentialID: UUID())
         do { try files.createPrivateDirectory(files.credentials(candidate.credentialID!)) }
         catch { errorMessage = error.localizedDescription; return }
         var next = registry; next.cleanupPending.append(candidate)
         guard commit(next) else { try? files.removeCredentials(candidate); return }
         let control = OperationControl(); loginControl = control; loginCandidate = candidate
         isLoggingIn = true; errorMessage = nil
-        loginMessage = "Preparing browser sign-in…"
+        loginMessage = String(localized: "Preparing browser sign-in…")
         let directory = files.credentials(candidate.credentialID!)
         let openURL: @Sendable (URL) -> Void = { [weak self] url in
             Task { @MainActor [weak self] in
@@ -388,11 +389,11 @@ final class UsageStore: ObservableObject {
         loginAuthorizationURL = url
         canOpenPrivateLogin = mode == .standard
         if mode == .privateWindow {
-            loginMessage = "Continue in the private window, then return here to confirm the account. (Up to 5 minutes)"
+            loginMessage = String(localized: "Continue in the private window, then return here to confirm the account. (Up to 5 minutes)")
         } else if loginCandidate?.provider == .claude {
-            loginMessage = "Continue in your browser. To use another account, choose Switch account on Claude’s approval page. This also switches the Claude website login. Return here to confirm. (Up to 5 minutes)"
+            loginMessage = String(localized: "Continue in your browser. To use another account, choose Switch account on Claude’s approval page. This also switches the Claude website login. Return here to confirm. (Up to 5 minutes)")
         } else {
-            loginMessage = "Choose an account in your browser, or select Sign in with another account. Return here to confirm. (Up to 5 minutes)"
+            loginMessage = String(localized: "Choose an account in your browser, or select Sign in with another account. Return here to confirm. (Up to 5 minutes)")
         }
         loginBrowser.open(url, mode: mode, control: control, failed: { [weak self] message in
             self?.errorMessage = message
@@ -402,7 +403,7 @@ final class UsageStore: ObservableObject {
 
     func presentCompletedLogin(_ account: UsageAccount, replacing: UUID?) {
         pendingLogin = PendingAccountLogin(account: account, replacing: replacing)
-        loginMessage = "Review the signed-in account, then register it."
+        loginMessage = String(localized: "Review the signed-in account, then register it.")
         // Reconnecting an account proven to be the same leaves nothing to review.
         if reconnectionComparison == .same { confirmLogin() }
     }
@@ -423,10 +424,10 @@ final class UsageStore: ObservableObject {
         var incoming = pending.account
         if let duplicate = next.accounts.first(where: {
             $0.provider == incoming.provider && $0.id != pending.replacing && $0.identity.map { incoming.identity?.comparison(to: $0) == .same } == true
-        }) { errorMessage = "This account is already registered: \(duplicate.title)"; return }
+        }) { errorMessage = String(localized: "This account is already registered: \(duplicate.title)"); return }
         if let id = pending.replacing, !addAsNew {
             guard let index = next.accounts.firstIndex(where: { $0.id == id }), !next.accounts[index].deletionPending else { return }
-            if reconnectionComparison == .different { errorMessage = "This is a different account. Add it as a new account."; return }
+            if reconnectionComparison == .different { errorMessage = String(localized: "This is a different account. Add it as a new account."); return }
             if reconnectionComparison != .same && !replaceUnverified { return }
             let old = next.accounts[index]
             incoming = UsageAccount(id: old.id, provider: old.provider, name: old.name, identity: incoming.identity, credentialID: incoming.credentialID)
@@ -452,7 +453,7 @@ final class UsageStore: ObservableObject {
         if let pending = pendingLogin {
             pendingLogin = nil; loginMessage = nil
             Task { await cleanCandidate(pending.account) }
-        } else if isLoggingIn { loginMessage = "Cancelling sign-in…" }
+        } else if isLoggingIn { loginMessage = String(localized: "Cancelling sign-in…") }
     }
     private func cleanCandidate(_ account: UsageAccount, allowUserInteraction: Bool = true) async {
         guard let credentialID = account.credentialID, !cleaning.contains(credentialID) else { return }

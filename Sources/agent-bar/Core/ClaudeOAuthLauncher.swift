@@ -23,7 +23,7 @@ enum ClaudeOAuthLauncher {
               let callback = URL(string: redirect), callback.scheme == "http",
               ["localhost", "127.0.0.1", "[::1]"].contains(callback.host ?? ""),
               callback.port != nil else {
-            throw AccountError.message("Claude did not return a valid sign-in URL with a local callback.")
+            throw AccountError.message(String(localized: "Claude did not return a valid sign-in URL with a local callback."))
         }
         return url
     }
@@ -37,8 +37,8 @@ enum ClaudeOAuthLauncher {
         let deadline = Date().addingTimeInterval(20)
         while !FileManager.default.fileExists(atPath: urlFile.path) {
             if control.cancelled { throw AccountError.cancelled }
-            if Date() >= deadline { throw AccountError.message("Could not obtain the Claude sign-in URL.") }
-            if session.exitStatus != -1 { throw AccountError.message("Could not prepare Claude sign-in.") }
+            if Date() >= deadline { throw AccountError.message(String(localized: "Could not obtain the Claude sign-in URL.")) }
+            if session.exitStatus != -1 { throw AccountError.message(String(localized: "Could not prepare Claude sign-in.")) }
             Thread.sleep(forTimeInterval: 0.05)
         }
         // The opener creates the file before its write finishes. Wait for a valid
@@ -49,12 +49,12 @@ enum ClaudeOAuthLauncher {
             authorizationURL = (try? Data(contentsOf: urlFile)).flatMap { try? validate($0) }
             if authorizationURL == nil { Thread.sleep(forTimeInterval: 0.05) }
         }
-        guard let authorizationURL else { throw AccountError.message("Unsupported Claude sign-in URL format.") }
+        guard let authorizationURL else { throw AccountError.message(String(localized: "Unsupported Claude sign-in URL format.")) }
         try FileManager.default.removeItem(at: urlFile)
         openURL(authorizationURL)
         _ = try session.collect(until: Date().addingTimeInterval(300), control: control)
         guard !control.cancelled else { throw AccountError.cancelled }
-        guard session.exitStatus == 0 else { throw AccountError.message("Claude sign-in did not complete.") }
+        guard session.exitStatus == 0 else { throw AccountError.message(String(localized: "Claude sign-in did not complete.")) }
         let identity = try ProviderCLI.claudeStatus(directory: directory, control: control)
         try control.checkCancellation()
         try saveLoginCredential(directory: directory)
@@ -77,7 +77,7 @@ enum ClaudeOAuthLauncher {
         }
         let service = AccountFiles.claudeService(directory)
         guard let data = try readKeychain(service, NSUserName()), usable(data) else {
-            throw AccountError.message("Claude signed in, but AgentBar could not read its saved credential. Reconnect to try again.")
+            throw AccountError.message(String(localized: "Claude signed in, but AgentBar could not read its saved credential. Reconnect to try again."))
         }
         // Polling reads the file while the Mac is locked, which complete protection blocks.
         try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

@@ -82,11 +82,11 @@ struct AccountPopoverView: View {
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, metric in
                 if index > 0 { Divider() }
                 if let window = metric.window {
-                    WindowCard(title: metric.title, systemImage: metric.systemImage, window: window)
+                    WindowCard(title: metric.localizedTitle, systemImage: metric.systemImage, window: window)
                 }
             }
             ForEach(metrics.filter { $0.window?.utilization == nil && $0.id.hasPrefix("model:") }) { metric in
-                Label("\(metric.title) · no data yet", systemImage: metric.systemImage)
+                Label("\(metric.localizedTitle) · no data yet", systemImage: metric.systemImage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -98,16 +98,18 @@ struct AccountPopoverView: View {
     }
 
     private func statusLine(_ snapshot: ProviderSnapshot) -> String {
-        let updated = "Updated \(TokenFormatters.relativeUpdateString(updatedAt: snapshot.updatedAt))"
-        if snapshot.requiresLogin { return "Sign-in required · reconnect in Settings › Accounts" }
-        if snapshot.isStale { return (snapshot.note ?? "Cached usage.") + " · " + updated }
+        let updated = String(localized: "Updated \(TokenFormatters.relativeUpdateString(updatedAt: snapshot.updatedAt))")
+        if snapshot.requiresLogin { return String(localized: "Sign-in required · reconnect in Settings › Accounts") }
+        if snapshot.isStale { return (snapshot.note ?? String(localized: "Cached usage.")) + " · " + updated }
         return updated + (snapshot.planName.map { " · " + $0 } ?? "")
     }
 
     private var footer: some View {
         HStack {
             let count = store.visibleAccounts.count
-            Text(store.isRefreshing ? "Refreshing…" : "\(count) account\(count == 1 ? "" : "s") in menu bar")
+            // Separate sentences for one and many, since Korean does not add an "s".
+            Text(store.isRefreshing ? String(localized: "Refreshing…")
+                 : count == 1 ? String(localized: "1 account in menu bar") : String(localized: "\(count) accounts in menu bar"))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
