@@ -37,6 +37,11 @@ struct MenuBarSettingsView: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 SettingsSectionTitle("Groups")
+                if !store.edition.customizesMenuBar {
+                    Label("Customizing the menu bar is available in AgentBar Pro.", systemImage: "lock.fill")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .padding(.leading, SettingsStyle.rowInsets.leading)
+                }
                 VStack(alignment: .leading, spacing: 0) {
                     groupTabs
                     if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
@@ -49,6 +54,7 @@ struct MenuBarSettingsView: View {
                                         in: RoundedRectangle(cornerRadius: SettingsStyle.cornerRadius, style: .continuous))
                     }
                 }
+                .disabled(!store.edition.customizesMenuBar)
             }
             if store.displayWidthWarning { Text("These groups use a large portion of the menu bar.").font(.caption).foregroundStyle(.orange) }
         }

@@ -50,9 +50,14 @@ struct AccountManagementView: View {
                     && !store.isLoggingIn && store.pendingLogin == nil {
                     Button("Retry Pending Cleanup") { Task { await store.retryCleanup() } }
                 }
+                if !store.canAddAccount {
+                    Label(UsageStore.accountLimitMessage, systemImage: "lock.fill")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Spacer()
                 Button("Add Account…") { choosingProvider = true }
-                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable || !store.canAddAccount)
             }
         }
         .onDisappear { accountDrag = nil; settlingAccountDrag = false }
@@ -260,11 +265,12 @@ struct LoginProgressView: View {
                     if store.reconnectionComparison == .different {
                         Text("This is a different account from the one being reconnected. It can only be added as a new account.")
                         Button("Add Account") { store.confirmLogin(addAsNew: true) }.keyboardShortcut(.defaultAction)
+                            .disabled(!store.canAddAccount)
                     } else if store.reconnectionComparison != .same {
                         Text("The account identity could not be verified automatically. Reconnect only if this is the same account.")
                         HStack {
                             Button("Reconnect") { store.confirmLogin(replaceUnverified: true) }.keyboardShortcut(.defaultAction)
-                            Button("Add Account") { store.confirmLogin(addAsNew: true) }
+                            Button("Add Account") { store.confirmLogin(addAsNew: true) }.disabled(!store.canAddAccount)
                         }
                     } else { Button("Reconnect") { store.confirmLogin() }.keyboardShortcut(.defaultAction) }
                 } else { Button("Add Account") { store.confirmLogin() }.keyboardShortcut(.defaultAction) }

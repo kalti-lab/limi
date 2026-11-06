@@ -12,22 +12,45 @@ install_path="$install_dir/$bundle_name"
 build_configuration="release"
 should_install=0
 signing_identity="${AGENTBAR_CODE_SIGN_IDENTITY:-}"
+# Pro unless asked otherwise. Free and Pro ship through different channels;
+# the edition is compiled in (AGENTBAR_FREE), see Sources/agent-bar/Core/AppEdition.swift.
+edition="pro"
+usage="Usage: ./scripts/build-app.sh [--install] [--edition free|pro]"
 
-for arg in "$@"; do
-  case "$arg" in
+while (( $# > 0 )); do
+  case "$1" in
     --install)
       should_install=1
       ;;
+    --edition)
+      shift
+      edition="${1:-}"
+      ;;
+    --edition=*)
+      edition="${1#--edition=}"
+      ;;
     *)
-      echo "Unknown option: $arg" >&2
-      echo "Usage: ./scripts/build-app.sh [--install]" >&2
+      echo "Unknown option: $1" >&2
+      echo "$usage" >&2
       exit 1
       ;;
   esac
+  shift
 done
 
-echo "Building agent-bar ($build_configuration)..."
-swift build -c "$build_configuration" --product agent-bar
+edition_flags=()
+case "$edition" in
+  pro) ;;
+  free) edition_flags=(-Xswiftc -DAGENTBAR_FREE) ;;
+  *)
+    echo "Unknown edition: $edition" >&2
+    echo "$usage" >&2
+    exit 1
+    ;;
+esac
+
+echo "Building agent-bar ($build_configuration, $edition edition)..."
+swift build -c "$build_configuration" --product agent-bar "${edition_flags[@]}"
 
 bin_dir=$(swift build -c "$build_configuration" --show-bin-path)
 binary_path="$bin_dir/agent-bar"

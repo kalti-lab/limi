@@ -47,8 +47,13 @@ final class UsageStore: ObservableObject {
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
+    /// Fixed at build time; tests pass one to check either edition.
+    let edition: AppEdition
+
     init(settings: AppSettings, files: AccountFiles = AccountFiles(), autoRefresh: Bool = true,
+         edition: AppEdition = .current,
          loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)? = nil) {
+        self.edition = edition
         self.settings = settings
         self.automaticRefresh = autoRefresh
         self.loadAccount = loadAccount
@@ -335,8 +340,20 @@ final class UsageStore: ObservableObject {
         }
     }
 
+    /// Whether another account fits this edition. Accounts already registered
+    /// stay, even past the limit, so a Pro install moved to Free loses nothing.
+    var canAddAccount: Bool {
+        guard let limit = edition.accountLimit else { return true }
+        return accounts.filter { !$0.deletionPending }.count < limit
+    }
+    static var accountLimitMessage: String {
+        String(localized: "The free version registers one account. AgentBar Pro registers more.")
+    }
+
     func startLogin(_ provider: ProviderKind, replacing: UsageAccount? = nil) {
         guard !isLoggingIn, pendingLogin == nil, !storageUnavailable else { return }
+        // Reconnecting keeps the count; only a new account must fit.
+        guard replacing != nil || canAddAccount else { errorMessage = Self.accountLimitMessage; return }
         do { _ = try ProviderCLI.executable(provider) }
         catch { errorMessage = error.localizedDescription; return }
         let candidate = UsageAccount(id: UUID(), provider: provider, name: String(localized: "New \(provider.displayName) account"), credentialID: UUID())
@@ -435,6 +452,7 @@ final class UsageStore: ObservableObject {
             if old.isManaged { next.cleanupPending.append(old) }
             controls[id]?.cancel(); snapshots[id] = nil; nextEligibleRefresh[id] = nil
         } else {
+            guard canAddAccount else { errorMessage = Self.accountLimitMessage; return }
             let hasManaged = next.accounts.contains { $0.provider == incoming.provider && $0.isManaged && !$0.deletionPending }
             next.accounts.append(incoming)
             if !hasManaged { next.representatives[incoming.provider.rawValue] = incoming.id }

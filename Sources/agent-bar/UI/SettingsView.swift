@@ -147,6 +147,13 @@ struct SettingsView: View {
                         Text(Self.version).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                 }
+                SettingsRow(divided: true) {
+                    HStack {
+                        Text("Edition")
+                        Spacer()
+                        Text(store.edition.title).foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .onAppear { launchAtLogin.refresh() }
