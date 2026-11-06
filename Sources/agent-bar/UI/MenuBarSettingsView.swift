@@ -22,26 +22,31 @@ struct MenuBarSettingsView: View {
     private var selected: MenuBarLayout? { groups.first { $0.id == store.selectedMenuBarGroupID } ?? groups.first }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Menu Bar Groups").font(.headline)
-                    // Guidance for a first setup; once lines exist the editor speaks for itself.
-                    if groups.allSatisfy({ $0.rows.isEmpty }) {
-                        Text("Each group is one item in the menu bar and shows up to three usage lines from any of your accounts. Select a group tab to edit it.")
-                            .font(.callout).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+            VStack(alignment: .leading, spacing: 16) {
+                // Guidance for a first setup; once lines exist the editor speaks for itself.
+                if groups.allSatisfy({ $0.rows.isEmpty }) {
+                    Text("Each group is one item in the menu bar and shows up to three usage lines from any of your accounts. Select a group tab to edit it.")
+                        .font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                MenuBarPreview(groups: groups, selectedID: selected?.id)
-                VStack(alignment: .leading, spacing: 0) {
-                    groupTabs
-                    if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
-                    else {
-                        Text("Add a group, then add a line for each usage limit you want to see.")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                            .background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
+                // Titled blocks: what the menu bar will look like, then the groups
+                // that make it up, each tab one menu bar item.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Menu bar preview").font(.headline)
+                    MenuBarPreview(groups: groups, selectedID: selected?.id)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Groups").font(.headline)
+                    VStack(alignment: .leading, spacing: 0) {
+                        groupTabs
+                        if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
+                        else {
+                            Text("Add a group, then add a line for each usage limit you want to see.")
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(GroupTabStyle.panelFill, in: RoundedRectangle(cornerRadius: 10))
+                        }
                     }
                 }
                 if store.displayWidthWarning { Text("These groups use a large portion of the menu bar.").font(.caption).foregroundStyle(.orange) }
@@ -168,9 +173,6 @@ private struct MenuBarGroupEditor: View {
                 Toggle("Show name", isOn: Binding(get: { group.effectiveBadgeMode.includesCommon }, set: { on in
                     store.updateDisplay { $0.editLayout(group.id) { $0.badgeMode = on ? .common : BadgeDisplayMode.none } }
                 })).help("Show the group name in front of its usage in the menu bar.")
-                // Ring Gauge has one line, so its percentage is chosen here; Multi Bar
-                // chooses it on the lines below.
-                if group.style == .ring { Toggle("Percentage", isOn: binding(\.showPercent)) }
                 Spacer(minLength: 0)
             }.toggleStyle(.checkbox)
             HStack(spacing: 6) {
@@ -195,6 +197,20 @@ private struct MenuBarGroupEditor: View {
                     .accessibilityAddTraits(group.style.selection == style ? .isSelected : [])
                 }
             }
+            // The one place a group's percentage is chosen. Capsule Fill and Text
+            // Only always show theirs.
+            if group.style == .bars && !group.displayedRows.isEmpty {
+                Picker("Percentage", selection: Binding(get: { group.shownPercentageLineID }, set: { id in
+                    store.updateDisplay { $0.editLayout(group.id) { $0.showPercentage(of: id) } }
+                })) {
+                    Text("Hidden").tag(String?.none)
+                    ForEach(percentageChoices, id: \.id) { choice in Text(choice.title).tag(Optional(choice.id)) }
+                }
+                .fixedSize()
+                .help("The line whose percentage appears beside the bars.")
+            } else if group.style == .ring {
+                Toggle("Percentage", isOn: binding(\.showPercent)).toggleStyle(.checkbox)
+            }
             if group.style == .text && group.rows.count > MenuBarLayout.maximumLines {
                 Text("Remove values until three remain to switch styles.").font(.caption).foregroundStyle(.secondary)
             }
@@ -208,13 +224,11 @@ private struct MenuBarGroupEditor: View {
                 }
             }
             if !group.rows.isEmpty {
-                // Column titles line up with each line's account, limit buttons,
-                // percentage button and remove button.
+                // Column titles line up with each line's account and limit buttons.
                 HStack(spacing: 6) {
                     if group.style != .ring { Color.clear.frame(width: 14, height: 1) }
                     Text("Account").frame(width: 150, alignment: .leading)
                     Text("Limit").frame(maxWidth: .infinity, alignment: .leading)
-                    if group.style == .bars { Text("%").frame(width: 20) }
                     Color.clear.frame(width: MenuBarLineEditor.removeWidth, height: 1)
                 }
                 .font(.caption.weight(.medium)).foregroundStyle(.secondary)
@@ -287,12 +301,22 @@ private struct MenuBarGroupEditor: View {
         }
         return group.rows.indices.first { (group.rows[$0].slot ?? $0) == slot }
     }
+    /// Each shown line as the Percentage menu names it: account and limit, with
+    /// the line number only where two lines would read the same.
+    private var percentageChoices: [(id: String, title: String)] {
+        let titles = group.displayedRows.map { row -> String in
+            let account = store.accounts.first { $0.id == row.accountID }
+            let metric = account.flatMap { account in DisplayMetric.all(store.snapshot(for: account)).first { $0.id == row.metricID } }
+            return "\(account.map { store.accountLabel(for: $0) } ?? "Account") · \(metric?.choiceTitle ?? row.metricID)"
+        }
+        return zip(group.displayedRows, titles).enumerated().map { index, pair in
+            (pair.0.id, titles.filter { $0 == pair.1 }.count > 1 ? "\(pair.1) (line \(index + 1))" : pair.1)
+        }
+    }
     private func lineEditor(at index: Int, preview: Bool = false) -> some View {
         let line = group.rows[index]
         return MenuBarLineEditor(groupID: group.id, line: line, index: index,
             allowsDragging: group.style != .ring,
-            canRepresentPercentage: group.style == .bars,
-            representsPercentage: group.showPercent && group.effectivePercentageLineID == line.id,
             dragChanged: { value in
                 if !preview { updateLineDrag(line.id, slot: line.slot ?? index, value: value) }
             },
@@ -381,8 +405,6 @@ private struct MenuBarLineEditor: View {
     let line: MenuBarLine
     let index: Int
     let allowsDragging: Bool
-    let canRepresentPercentage: Bool
-    let representsPercentage: Bool
     let dragChanged: (DragGesture.Value) -> Void
     let dragEnded: (CGPoint) -> Void
     /// Fixed so the column titles above can line up with the remove button.
@@ -435,24 +457,6 @@ private struct MenuBarLineEditor: View {
                         ForEach(limitChoices) { limitButton($0, title: $0.compactChoiceTitle, truncates: true) }
                     }
                 }.frame(maxWidth: .infinity)
-            if canRepresentPercentage {
-                Button {
-                    store.updateDisplay { $0.editLayout(groupID) { $0.togglePercentage(line.id) } }
-                } label: {
-                    Text("%")
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundStyle(representsPercentage ? Color.accentColor : Color.secondary)
-                        .frame(width: 20, height: 20)
-                        .background(representsPercentage ? Color.accentColor.opacity(0.14) : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 5))
-                        .overlay(RoundedRectangle(cornerRadius: 5)
-                            .strokeBorder(representsPercentage ? Color.accentColor : Color.primary.opacity(0.12)))
-                }.buttonStyle(.plain)
-                    .help(representsPercentage ? "This line's percentage is shown in the menu bar. Click to hide it."
-                                               : "Show this line's percentage in the menu bar")
-                    .accessibilityLabel("Show this line's percentage")
-                    .accessibilityAddTraits(representsPercentage ? .isSelected : [])
-            }
             if !store.displayConfiguration.isVisible(line.accountID) {
                 Button { store.updateDisplay { $0.setVisible(line.accountID, true) } } label: {
                     Image(systemName: "pause.circle")
@@ -598,7 +602,6 @@ private struct MenuBarPreview: View {
     }
     var body: some View {
         HStack(spacing: 2) {
-            Text("Menu bar").font(.caption).foregroundStyle(.secondary)
             Spacer(minLength: 8)
             if shown.isEmpty {
                 Text("No groups shown").font(.caption).foregroundStyle(.tertiary)
@@ -611,14 +614,16 @@ private struct MenuBarPreview: View {
                             .fill(group.id == selectedID ? Color.primary.opacity(0.14) : .clear))
                 }
                 .buttonStyle(.plain)
-                .help(group.name)
+                .help("\(group.name) · Click to edit this group")
                 .accessibilityLabel("Select \(group.name)")
             }
         }
         .padding(.horizontal, 10)
         .frame(height: 32)
+        // A strip like the menu bar itself rather than a field: no border, a
+        // soft shadow, items on the right as macOS places them.
         .background(.bar, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .shadow(color: .black.opacity(0.14), radius: 1.5, y: 0.5)
     }
     private func image(for group: MenuBarLayout) -> NSImage {
         DisplayStatusRenderer.render(entries: store.entries(for: group), config: group.renderingConfiguration(store.displayConfiguration),

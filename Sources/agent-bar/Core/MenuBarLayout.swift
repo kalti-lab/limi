@@ -83,15 +83,12 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
         }.map(\.element)
         for index in rows.indices { rows[index].slot = index }
     }
-    /// Multi Bar picks its percentage on the lines themselves: choosing the
-    /// shown line again hides the percentage, choosing another shows that one.
-    mutating func togglePercentage(_ lineID: String) {
-        if showPercent && effectivePercentageLineID == lineID {
-            showPercent = false
-        } else {
-            showPercent = true
-            percentageLineID = lineID
-        }
+    /// The line whose percentage Multi Bar shows, or nil when it shows none.
+    var shownPercentageLineID: String? { showPercent ? effectivePercentageLineID : nil }
+    /// Shows that line's percentage, or none for nil.
+    mutating func showPercentage(of lineID: String?) {
+        showPercent = lineID != nil
+        if let lineID { percentageLineID = lineID }
     }
     mutating func moveLine(_ id: String, offset: Int) {
         if style == .text { compactLineSlots() }

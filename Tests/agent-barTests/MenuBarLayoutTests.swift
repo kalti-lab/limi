@@ -344,17 +344,18 @@ struct MenuBarLayoutTests {
         #expect(try f.files.read(DisplayConfiguration.self, at: path).layouts?.map(\.name) == ["CL", "Work"])
     }
 
-    @Test func multiBarPicksAndHidesItsPercentageOnTheLines() {
+    @Test func multiBarShowsThePercentageOfTheChosenLineOrNone() {
         let account = UUID()
         var group = MenuBarLayout(name: "CL", rows: [MenuBarLine(id: "a", accountID: account, metricID: "5h", slot: 0),
                                                      MenuBarLine(id: "b", accountID: account, metricID: "weekly", slot: 1)])
-        #expect(group.showPercent && group.effectivePercentageLineID == "a")
-        group.togglePercentage("b")
-        #expect(group.showPercent && group.effectivePercentageLineID == "b")
-        group.togglePercentage("b")
-        #expect(!group.showPercent)
-        group.togglePercentage("a")
-        #expect(group.showPercent && group.effectivePercentageLineID == "a")
+        #expect(group.shownPercentageLineID == "a")
+        group.showPercentage(of: "b")
+        #expect(group.showPercent && group.shownPercentageLineID == "b")
+        group.showPercentage(of: nil)
+        #expect(!group.showPercent && group.shownPercentageLineID == nil)
+        // Showing it again keeps the line chosen before.
+        group.showPercentage(of: "b")
+        #expect(group.shownPercentageLineID == "b")
     }
 
     @Test func accountChoicesNameTheProviderOnlyWhenTheNameDoesNot() {
