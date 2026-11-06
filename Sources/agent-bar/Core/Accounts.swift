@@ -45,9 +45,13 @@ struct UsageAccount: Codable, Equatable, Identifiable, Sendable {
     var isBuiltIn: Bool { id == Self.currentCLI(provider).id }
     var title: String { name }
     static func currentCLI(_ provider: ProviderKind) -> Self {
-        Self(id: UUID(uuidString: provider == .claude
-            ? "00000000-0000-0000-0000-000000000001"
-            : "00000000-0000-0000-0000-000000000002")!,
+        Self(id: UUID(uuidString: {
+            switch provider {
+            case .claude: return "00000000-0000-0000-0000-000000000001"
+            case .codex: return "00000000-0000-0000-0000-000000000002"
+            case .antigravity: return "00000000-0000-0000-0000-000000000003"
+            }
+        }())!,
              provider: provider, name: "Current CLI account")
     }
 }

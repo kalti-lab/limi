@@ -91,6 +91,10 @@ No backend, telemetry, browser-cookie extraction, or session-log scanning is add
 
 Limi reads Claude usage with each account's own Claude Code sign-in. The sign-in completes in Claude Code's own browser flow; Limi then keeps a copy of it in the account's private folder to read usage on every refresh and to renew it. Anthropic's [terms for Claude Code](https://code.claude.com/docs/en/legal-and-compliance) limit apps that collect or store Claude sign-ins, so Anthropic could block these reads at any time. Limi asks once, before the first Claude sign-in or reconnect, whether you accept this. If Anthropic refuses these reads, as it refused third-party Claude clients in 2026, the account says so instead of asking you to reconnect, since reconnecting cannot help.
 
+## Antigravity (experimental)
+
+Google's [Antigravity terms](https://antigravity.google/terms) forbid other apps from using an Antigravity sign-in, and Google has suspended Antigravity accounts for it. So Limi never holds or sends that sign-in: it reads usage from the Antigravity app or `agy` running on this Mac, through its local language server, as Antigravity shows it itself. As a result Limi supports one Antigravity account, the one signed in there, and refreshes it while Antigravity runs; when Antigravity is closed it shows the last values and reset times. Each Antigravity model group (e.g. Gemini, Claude/GPT) has its own limits: weekly on free accounts, 5-hour and weekly on paid ones. The local interface is not public, so an Antigravity update may stop this from working; the account is marked Experimental.
+
 ## Build and install
 
 ```bash

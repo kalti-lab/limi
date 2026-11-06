@@ -52,7 +52,9 @@ extension DisplayMetric {
         switch id {
         case "5h": return "clock"
         case "weekly": return "calendar"
-        default: return "cpu"
+        default:
+            if id.hasPrefix("group:") { return id.hasSuffix(":5h") ? "clock" : "calendar" }
+            return "cpu"
         }
     }
 }

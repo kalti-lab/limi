@@ -32,7 +32,13 @@ enum AccountColor: String, Codable, CaseIterable, Identifiable {
         }
     }
     var color: Color { Color(nsColor: nsColor) }
-    static func preferred(for provider: ProviderKind) -> AccountColor { provider == .claude ? .blue : .purple }
+    static func preferred(for provider: ProviderKind) -> AccountColor {
+        switch provider {
+        case .claude: return .blue
+        case .codex: return .purple
+        case .antigravity: return .teal
+        }
+    }
     static func next(for provider: ProviderKind, used: [AccountColor]) -> AccountColor {
         let preferred = preferred(for: provider)
         if !used.contains(preferred) { return preferred }
@@ -322,6 +328,9 @@ struct DisplayMetric: Identifiable {
     var id: String
     var title: String
     var window: WindowSummary?
+    /// The Antigravity model group a limit belongs to, named in its titles.
+    var group: String? = nil
+    private var isFiveHour: Bool { id == "5h" || id.hasSuffix(":5h") }
     // Badge text for a limit's own line in the Multi Bar style.
     var shortLabel: String {
         switch id {
@@ -333,6 +342,7 @@ struct DisplayMetric: Identifiable {
     /// The metric's name as the popover and Settings show it. `title` stays
     /// the English name the rest of the app reads.
     var localizedTitle: String {
+        if let group { return isFiveHour ? String(localized: "\(group) 5-hour limit") : String(localized: "\(group) weekly limit") }
         switch id {
         case "5h": return String(localized: "5-Hour Session")
         case "weekly": return String(localized: "Weekly Limit")
@@ -341,6 +351,7 @@ struct DisplayMetric: Identifiable {
     }
     /// The name on a limit choice. Model limits say they are weekly.
     var choiceTitle: String {
+        if let group { return isFiveHour ? String(localized: "\(group) 5 hours") : String(localized: "\(group) weekly") }
         switch id {
         case "5h": return String(localized: "5 hours")
         case "weekly": return String(localized: "Weekly")
@@ -349,6 +360,7 @@ struct DisplayMetric: Identifiable {
     }
     /// The same name without the window, for rows too narrow for it.
     var compactChoiceTitle: String {
+        if let group { return isFiveHour ? String(localized: "\(group) 5h") : String(localized: "\(group) wk") }
         switch id {
         case "5h", "weekly": return choiceTitle
         default: return modelName
@@ -362,6 +374,26 @@ struct DisplayMetric: Identifiable {
         return title
     }
     static func all(_ snapshot: ProviderSnapshot) -> [Self] {
+        // Antigravity: one 5-hour and one weekly limit per model group. The
+        // first group keeps the plain ids, so the line a new account starts
+        // with ("weekly") shows it; the rest are named by group.
+        if let groups = snapshot.limitGroups, !groups.isEmpty {
+            var result: [Self] = []
+            for (index, group) in groups.enumerated() {
+                var key: String?
+                if index > 0 {
+                    let slug = "group:" + group.label.lowercased().map { $0.isLetter || $0.isNumber ? String($0) : "-" }.joined()
+                    key = result.contains { $0.id.hasPrefix(slug + ":") } ? slug + "-\(index)" : slug
+                }
+                if let fiveHour = group.fiveHour {
+                    result.append(Self(id: key.map { $0 + ":5h" } ?? "5h", title: group.label + " 5-Hour", window: fiveHour, group: group.label))
+                }
+                if let weekly = group.weekly {
+                    result.append(Self(id: key.map { $0 + ":weekly" } ?? "weekly", title: group.label + " Weekly", window: weekly, group: group.label))
+                }
+            }
+            return result
+        }
         var result = [Self(id: "5h", title: "5-Hour Session", window: snapshot.fiveHour), Self(id: "weekly", title: "Weekly Limit", window: snapshot.weekly)]
         for model in snapshot.displayedModelWeeklies {
             let key = "model:" + model.label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

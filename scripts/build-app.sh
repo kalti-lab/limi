@@ -124,6 +124,8 @@ PLIST
 # APP_NAME above stands for the app name; set it from app_name.
 plutil -replace CFBundleName -string "$app_name" "$bundle_path/Contents/Info.plist"
 plutil -replace CFBundleDisplayName -string "$app_name" "$bundle_path/Contents/Info.plist"
+# Antigravity's local language server answers plain HTTP on 127.0.0.1.
+plutil -insert NSAppTransportSecurity -json '{"NSAllowsLocalNetworking":true}' "$bundle_path/Contents/Info.plist"
 
 printf 'APPL????' > "$bundle_path/Contents/PkgInfo"
 

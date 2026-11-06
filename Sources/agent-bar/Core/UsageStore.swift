@@ -292,7 +292,8 @@ final class UsageStore: ObservableObject {
                 pendingRefreshIDs.removeAll()
                 async let claude: Void = refreshService(.claude, requested: requested)
                 async let codex: Void = refreshService(.codex, requested: requested)
-                _ = await (claude, codex)
+                async let antigravity: Void = refreshService(.antigravity, requested: requested)
+                _ = await (claude, codex, antigravity)
             }
             isRefreshing = false; lastRefresh = .now; refreshTask = nil
         }
@@ -308,6 +309,8 @@ final class UsageStore: ObservableObject {
             let result: ProviderSnapshot
             if let loadAccount {
                 result = await loadAccount(account, control)
+            } else if provider == .antigravity {
+                result = await AntigravityUsageProvider(expectedIdentity: account.identity).load()
             } else if provider == .codex {
                 result = await CodexUsageProvider(directory: directory, expectedIdentity: account.identity, control: control).load()
             } else {
@@ -346,6 +349,11 @@ final class UsageStore: ObservableObject {
         guard let limit = edition.accountLimit else { return true }
         return accounts.filter { !$0.deletionPending }.count < limit
     }
+    /// Antigravity is read from the one account signed in to it on this Mac.
+    var hasAntigravityAccount: Bool { accounts.contains { $0.provider == .antigravity && !$0.deletionPending } }
+    static var antigravityLimitMessage: String {
+        String(localized: "Only one Antigravity account is supported: the one signed in to Antigravity running on this Mac.")
+    }
     static var accountLimitMessage: String {
         String(localized: "The free version registers one account. \(AppInfo.proName) registers more.")
     }
@@ -354,6 +362,9 @@ final class UsageStore: ObservableObject {
         guard !isLoggingIn, pendingLogin == nil, !storageUnavailable else { return }
         // Reconnecting keeps the count; only a new account must fit.
         guard replacing != nil || canAddAccount else { errorMessage = Self.accountLimitMessage; return }
+        guard provider != .antigravity || replacing != nil || !hasAntigravityAccount else {
+            errorMessage = Self.antigravityLimitMessage; return
+        }
         do { _ = try ProviderCLI.executable(provider) }
         catch { errorMessage = error.localizedDescription; return }
         let candidate = UsageAccount(id: UUID(), provider: provider, name: String(localized: "New \(provider.displayName) account"), credentialID: UUID())
@@ -363,7 +374,8 @@ final class UsageStore: ObservableObject {
         guard commit(next) else { try? files.removeCredentials(candidate); return }
         let control = OperationControl(); loginControl = control; loginCandidate = candidate
         isLoggingIn = true; errorMessage = nil
-        loginMessage = String(localized: "Preparing browser sign-in…")
+        loginMessage = provider == .antigravity ? String(localized: "Reading the account signed in to Antigravity…")
+            : String(localized: "Preparing browser sign-in…")
         let directory = files.credentials(candidate.credentialID!)
         let openURL: @Sendable (URL) -> Void = { [weak self] url in
             Task { @MainActor [weak self] in
@@ -374,6 +386,10 @@ final class UsageStore: ObservableObject {
         loginTask = Task { [weak self] in
             let result: Result<AccountIdentity, Error> = await Task.detached(priority: .utility) {
                 do {
+                    // No sign-in of its own: the account signed in to Antigravity is read.
+                    if provider == .antigravity {
+                        return .success(try await AntigravityUsageProvider().signedInAccount())
+                    }
                     if provider == .codex {
                         let rpc = try CodexRPC(directory: directory, control: control)
                         defer { rpc.stop() }
@@ -453,6 +469,7 @@ final class UsageStore: ObservableObject {
             controls[id]?.cancel(); snapshots[id] = nil; nextEligibleRefresh[id] = nil
         } else {
             guard canAddAccount else { errorMessage = Self.accountLimitMessage; return }
+            guard incoming.provider != .antigravity || !hasAntigravityAccount else { errorMessage = Self.antigravityLimitMessage; return }
             let hasManaged = next.accounts.contains { $0.provider == incoming.provider && $0.isManaged && !$0.deletionPending }
             next.accounts.append(incoming)
             if !hasManaged { next.representatives[incoming.provider.rawValue] = incoming.id }

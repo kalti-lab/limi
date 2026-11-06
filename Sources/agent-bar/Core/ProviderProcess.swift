@@ -136,6 +136,15 @@ final class OperationControl: @unchecked Sendable {
 enum ProviderCLI {
     static func executable(_ provider: ProviderKind) throws -> URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
+        // Antigravity is never run by Limi: it is read while the person runs
+        // the app or `agy`, so this only says whether either is installed.
+        if provider == .antigravity {
+            let candidates = [home.appendingPathComponent(".local/bin/agy").path, "/Applications/Antigravity.app"]
+            guard let path = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
+                throw AccountError.message(String(localized: "Antigravity isn't installed on this Mac. Install the Antigravity app or agy and sign in, then try again."))
+            }
+            return URL(fileURLWithPath: path)
+        }
         // Homebrew's official executable precedes user launchers (e.g. OpenCodex).
         var paths = ["/opt/homebrew/bin/\(provider == .codex ? "codex" : "claude")", "/usr/local/bin/\(provider == .codex ? "codex" : "claude")"]
         if provider == .claude { paths += [home.appendingPathComponent(".local/bin/claude").path] }

@@ -27,6 +27,8 @@ enum AppTheme {
             return Color(red: 0.85, green: 0.47, blue: 0.34)
         case .codex:
             return Color(red: 0.06, green: 0.64, blue: 0.50)
+        case .antigravity:
+            return Color(red: 0.26, green: 0.52, blue: 0.96)
         }
     }
 
@@ -36,6 +38,8 @@ enum AppTheme {
             return Color(red: 0.17, green: 0.52, blue: 0.95)
         case .codex:
             return Color(red: 0.50, green: 0.39, blue: 0.94)
+        case .antigravity:
+            return Color(red: 0.26, green: 0.52, blue: 0.96)
         }
     }
 
@@ -45,6 +49,8 @@ enum AppTheme {
             return Color(red: 0.42, green: 1.00, blue: 0.56)
         case .codex:
             return Color(red: 1.00, green: 0.66, blue: 0.36)
+        case .antigravity:
+            return Color(red: 0.42, green: 0.66, blue: 1.00)
         }
     }
 
@@ -54,6 +60,8 @@ enum AppTheme {
             return Color(red: 0.35, green: 0.72, blue: 1.00)
         case .codex:
             return Color(red: 0.69, green: 0.58, blue: 1.00)
+        case .antigravity:
+            return Color(red: 0.42, green: 0.66, blue: 1.00)
         }
     }
 }

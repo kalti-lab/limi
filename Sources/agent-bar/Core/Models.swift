@@ -3,6 +3,8 @@ import Foundation
 enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendable {
     case claude
     case codex
+    /// Experimental: read from the Antigravity app or `agy` running on this Mac.
+    case antigravity
 
     var id: String { rawValue }
 
@@ -12,6 +14,8 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
             return "Claude"
         case .codex:
             return "Codex"
+        case .antigravity:
+            return "Antigravity"
         }
     }
 
@@ -21,6 +25,8 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
             return "CL"
         case .codex:
             return "CX"
+        case .antigravity:
+            return "AG"
         }
     }
 
@@ -30,6 +36,8 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
             return "Anthropic OAuth usage API"
         case .codex:
             return "Codex app-server rate limits"
+        case .antigravity:
+            return "Antigravity local language server"
         }
     }
 
@@ -40,6 +48,8 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
             return "asterisk"
         case .codex:
             return "terminal"
+        case .antigravity:
+            return "sparkle"
         }
     }
 
@@ -56,6 +66,8 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
             return String(localized: "5-hour and weekly limits of your Claude plan")
         case .codex:
             return String(localized: "5-hour and weekly limits of your ChatGPT plan")
+        case .antigravity:
+            return String(localized: "Experimental · Supports the one account signed in to Antigravity running on this Mac.")
         }
     }
 }
@@ -91,6 +103,14 @@ struct ModelWeeklySummary: Equatable, Codable, Sendable {
     )
 }
 
+/// One of Antigravity's model groups (e.g. Gemini, Claude/GPT) with its own
+/// 5-hour and weekly limits. Free accounts have only the weekly one.
+struct LimitGroupSummary: Equatable, Codable, Sendable {
+    let label: String
+    let fiveHour: WindowSummary?
+    let weekly: WindowSummary?
+}
+
 struct ProviderSnapshot: Equatable, Codable, Sendable {
     let provider: ProviderKind
     let updatedAt: Date
@@ -103,6 +123,9 @@ struct ProviderSnapshot: Equatable, Codable, Sendable {
     let isStale: Bool
     let requiresLogin: Bool
     var retryAt: Date? = nil
+    /// Antigravity's model groups. The first also fills `fiveHour`/`weekly`,
+    /// so lines that show those keep working.
+    var limitGroups: [LimitGroupSummary]? = nil
 
     var displayedModelWeeklies: [ModelWeeklySummary] {
         guard provider == .claude else { return modelWeeklies }
@@ -148,6 +171,6 @@ extension ProviderSnapshot {
     func failed(_ message: String, requiresLogin: Bool = false) -> Self {
         Self(provider: provider, updatedAt: updatedAt, fiveHour: fiveHour, weekly: weekly,
              modelWeeklies: modelWeeklies, planName: planName, sourceDescription: sourceDescription,
-             note: message, isStale: true, requiresLogin: requiresLogin)
+             note: message, isStale: true, requiresLogin: requiresLogin, limitGroups: limitGroups)
     }
 }
