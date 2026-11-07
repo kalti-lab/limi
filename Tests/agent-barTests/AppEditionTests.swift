@@ -77,4 +77,13 @@ struct AppNameTests {
         #expect(AppInfo.proName == "\(AppInfo.name) Pro")
         #expect(UsageStore.accountLimitMessage.contains(AppInfo.proName))
     }
+
+    @Test func theAppNamesItselfToServicesByItsOwnName() {
+        #expect(AppInfo.userAgent == "\(AppInfo.defaultName)/dev")
+        #expect(AppInfo.userAgent(name: "Limi", version: "0.1.0") == "Limi/0.1.0")
+        #expect(AppInfo.userAgent(name: "Limi Pro", version: "1.2") == "Limi-Pro/1.2")
+        // A name with nothing a User-Agent can carry falls back to the default.
+        #expect(AppInfo.userAgent(name: "리미", version: "0.1.0") == "Limi/0.1.0")
+        #expect(AppInfo.userAgent(name: "Limi", version: "") == "Limi/dev")
+    }
 }

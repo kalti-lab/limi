@@ -17,4 +17,27 @@ enum AppInfo {
     }()
 
     static var proName: String { "\(name) Pro" }
+
+    /// The version people see, such as "0.1.0"; "dev" outside a built app.
+    static let version: String = {
+        guard Bundle.main.bundleURL.pathExtension == "app",
+              let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+              !version.isEmpty else { return "dev" }
+        return version
+    }()
+
+    /// How the app names itself to the services it asks, such as "Limi/0.1.0":
+    /// its own name, never another app's.
+    static var userAgent: String { userAgent(name: name, version: version) }
+
+    /// A User-Agent product name takes only ASCII letters, digits and `.-_`,
+    /// so a renamed app keeps those, with spaces as dashes.
+    static func userAgent(name: String, version: String) -> String {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_")
+        func token(_ text: String) -> String {
+            String(String.UnicodeScalarView(text.replacingOccurrences(of: " ", with: "-").unicodeScalars.filter(allowed.contains)))
+        }
+        let product = token(name), release = token(version)
+        return "\(product.isEmpty ? defaultName : product)/\(release.isEmpty ? "dev" : release)"
+    }
 }

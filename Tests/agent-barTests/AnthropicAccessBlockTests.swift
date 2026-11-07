@@ -39,6 +39,18 @@ struct AnthropicAccessBlockTests {
         #expect(try Data(contentsOf: file) == before)
     }
 
+    @Test func theUsageReadNamesLimiRatherThanClaudeCode() async throws {
+        let directory = try credentialDirectory(expiresAt: 4_102_444_800_000); defer { try? FileManager.default.removeItem(at: directory) }
+        let agents = SentAgents()
+        let provider = ClaudeUsageProvider(directory: directory, transport: { request in
+            agents.append(request.value(forHTTPHeaderField: "User-Agent"))
+            return reply(request, status: 200, body: #"{"five_hour":{"utilization":10,"resets_at":null}}"#)
+        })
+        _ = await provider.load()
+        #expect(agents.all == [AppInfo.userAgent])
+        #expect(agents.all.allSatisfy { $0?.localizedCaseInsensitiveContains("claude") == false })
+    }
+
     @Test func anExpiredSignInStillAsksToReconnect() async throws {
         let directory = try credentialDirectory(expiresAt: 4_102_444_800_000); defer { try? FileManager.default.removeItem(at: directory) }
         let provider = ClaudeUsageProvider(directory: directory, transport: { request in
@@ -64,6 +76,13 @@ private func credentialDirectory(expiresAt: Int) throws -> URL {
     let credential = #"{"claudeAiOauth":{"accessToken":"fixture","refreshToken":"fixture-refresh","expiresAt":\#(expiresAt),"scopes":["user:profile","user:inference"],"subscriptionType":"max"}}"#
     try Data(credential.utf8).write(to: directory.appendingPathComponent(".credentials.json"))
     return directory
+}
+
+private final class SentAgents: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String?] = []
+    var all: [String?] { lock.lock(); defer { lock.unlock() }; return values }
+    func append(_ value: String?) { lock.lock(); values.append(value); lock.unlock() }
 }
 
 private func reply(_ request: URLRequest, status: Int, body: String) -> (Data, URLResponse) {

@@ -279,7 +279,9 @@ struct ClaudeUsageProvider: UsageProviding {
         request.timeoutInterval = 15
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        request.setValue("claude-code/2.1", forHTTPHeaderField: "User-Agent")
+        // Limi names itself rather than posing as Claude Code: it tells people
+        // how it reads Claude usage, and says the same to Anthropic.
+        request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
         return request
     }
 
