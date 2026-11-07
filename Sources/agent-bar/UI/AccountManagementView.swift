@@ -289,34 +289,44 @@ struct LoginProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             if store.isLoggingIn { ProgressView().controlSize(.small) }
             Text(store.loginMessage ?? "")
-            if store.canOpenPrivateLogin {
-                Button("Use Private Window Instead") { store.openPrivateLogin() }
-            }
             if let pending = store.pendingLogin {
                 if let identity = pending.account.identity?.description, !identity.isEmpty {
                     Text(verbatim: identity).font(.headline).textSelection(.enabled)
                 } else {
                     Text("The provider did not return account details.").font(.headline)
                 }
-                if pending.replacing != nil {
-                    if store.reconnectionComparison == .different {
-                        Text("This is a different account from the one being reconnected. It can only be added as a new account.")
-                        Button("Add Account") { store.confirmLogin(addAsNew: true) }.keyboardShortcut(.defaultAction)
-                            .disabled(!store.canAddAccount)
-                    } else if store.reconnectionComparison != .same {
-                        Text("The account identity could not be verified automatically. Reconnect only if this is the same account.")
-                        HStack {
-                            Button("Reconnect") { store.confirmLogin(replaceUnverified: true) }.keyboardShortcut(.defaultAction)
-                            Button("Add Account") { store.confirmLogin(addAsNew: true) }.disabled(!store.canAddAccount)
-                        }
-                    } else { Button("Reconnect") { store.confirmLogin() }.keyboardShortcut(.defaultAction) }
-                } else { Button("Add Account") { store.confirmLogin() }.keyboardShortcut(.defaultAction) }
+                if pending.replacing != nil, store.reconnectionComparison == .different {
+                    Text("This is a different account from the one being reconnected. It can only be added as a new account.")
+                } else if pending.replacing != nil, store.reconnectionComparison != .same {
+                    Text("The account identity could not be verified automatically. Reconnect only if this is the same account.")
+                }
             }
-            Button("Cancel", role: .cancel) { store.cancelLogin() }.keyboardShortcut(.cancelAction)
+            // One row of actions: this step's own, then Cancel.
+            HStack(spacing: 8) {
+                if store.canOpenPrivateLogin {
+                    Button("Use Private Window Instead") { store.openPrivateLogin() }
+                }
+                if let pending = store.pendingLogin { confirmButtons(pending) }
+                Button("Cancel", role: .cancel) { store.cancelLogin() }.keyboardShortcut(.cancelAction)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.accentColor.opacity(0.08)))
+    }
+
+    @ViewBuilder private func confirmButtons(_ pending: PendingAccountLogin) -> some View {
+        if pending.replacing == nil {
+            Button("Add Account") { store.confirmLogin() }.keyboardShortcut(.defaultAction)
+        } else if store.reconnectionComparison == .different {
+            Button("Add Account") { store.confirmLogin(addAsNew: true) }.keyboardShortcut(.defaultAction)
+                .disabled(!store.canAddAccount)
+        } else if store.reconnectionComparison != .same {
+            Button("Reconnect") { store.confirmLogin(replaceUnverified: true) }.keyboardShortcut(.defaultAction)
+            Button("Add Account") { store.confirmLogin(addAsNew: true) }.disabled(!store.canAddAccount)
+        } else {
+            Button("Reconnect") { store.confirmLogin() }.keyboardShortcut(.defaultAction)
+        }
     }
 }
 
