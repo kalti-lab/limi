@@ -3,7 +3,7 @@ import Foundation
 enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendable {
     case claude
     case codex
-    /// Experimental: read from the Antigravity app or `agy` running on this Mac.
+    /// Experimental: read through `agy`, or the Antigravity app while it runs.
     case antigravity
 
     var id: String { rawValue }
@@ -37,7 +37,7 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
         case .codex:
             return "Codex app-server rate limits"
         case .antigravity:
-            return "Antigravity local language server"
+            return "agy /usage or the Antigravity app"
         }
     }
 
@@ -67,7 +67,7 @@ enum ProviderKind: String, CaseIterable, Hashable, Identifiable, Codable, Sendab
         case .codex:
             return String(localized: "5-hour and weekly limits of your ChatGPT plan")
         case .antigravity:
-            return String(localized: "Experimental · Supports the one account signed in to Antigravity running on this Mac.")
+            return String(localized: "Experimental · Supports the one account signed in to agy or the Antigravity app on this Mac.")
         }
     }
 }

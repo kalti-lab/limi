@@ -122,7 +122,7 @@ struct AccountManagementView: View {
                         Text("Experimental").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(Color.orange.opacity(0.12), in: Capsule())
-                            .help(Text("\(AppInfo.name) doesn't use your Antigravity sign-in; it reads usage from Antigravity running on this Mac. When Antigravity is closed it shows the last values and reset times, and it may stop working after an Antigravity update."))
+                            .help(Text("\(AppInfo.name) doesn't use your Antigravity sign-in; it asks agy on this Mac for usage, or the Antigravity app while it runs. It may stop working after an Antigravity update."))
                     }
                 }
                 if let identity = identityLine(account) {

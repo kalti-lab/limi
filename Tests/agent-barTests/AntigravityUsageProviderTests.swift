@@ -57,13 +57,13 @@ struct AntigravityUsageProviderTests {
         #expect(DisplayMetric.menuBar(snapshot, preferred: "weekly").window?.utilization == 0.6)
     }
 
-    @Test func readingNeedsAntigravityRunningAndSignedInToTheSameAccount() async {
-        let closed = AntigravityUsageProvider(locate: { nil })
+    @Test func withoutAgyTheAppMustBeRunningAndSignedInToTheSameAccount() async {
+        let closed = AntigravityUsageProvider(agy: { nil }, locate: { nil })
         let waiting = await closed.load()
         #expect(waiting.isStale && !waiting.requiresLogin && waiting.note?.contains("isn't running") == true)
 
         func running(as email: String) -> AntigravityUsageProvider {
-            AntigravityUsageProvider(expectedIdentity: AccountIdentity(email: email), locate: { .init(port: 1, token: "t") },
+            AntigravityUsageProvider(expectedIdentity: AccountIdentity(email: email), agy: { nil }, locate: { .init(port: 1, token: "t") },
                                      transport: { request in
                 #expect(request.value(forHTTPHeaderField: "X-Codeium-Csrf-Token") == "t")
                 let body = request.url!.lastPathComponent == "GetUserStatus" ? status : summary

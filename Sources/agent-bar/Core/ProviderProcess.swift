@@ -84,12 +84,19 @@ final class ProcessSession: @unchecked Sendable {
         }
     }
 
-    func collect(until deadline: Date, control: OperationControl) throws -> Data {
+    /// Ends the CLI's input, for commands that should read nothing from it.
+    func closeInput() { try? input.fileHandleForWriting.close() }
+
+    /// Thrown by `collect` when its `stopWhen` check says to give up early.
+    struct StoppedEarly: Error {}
+
+    func collect(until deadline: Date, control: OperationControl, stopWhen: (() -> Bool)? = nil) throws -> Data {
         var result = Data()
         condition.lock()
         defer { condition.unlock() }
         while true {
             if control.cancelled { throw AccountError.cancelled }
+            if let stopWhen, stopWhen() { throw StoppedEarly() }
             if overflow || result.count + buffer.count > 2_000_000 {
                 throw AccountError.message(String(localized: "The CLI response is too large."))
             }
@@ -136,8 +143,8 @@ final class OperationControl: @unchecked Sendable {
 enum ProviderCLI {
     static func executable(_ provider: ProviderKind) throws -> URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        // Antigravity is never run by Limi: it is read while the person runs
-        // the app or `agy`, so this only says whether either is installed.
+        // Antigravity is read through `agy` or the app (see
+        // AntigravityUsageProvider); this only says whether either is installed.
         if provider == .antigravity {
             let candidates = [home.appendingPathComponent(".local/bin/agy").path, "/Applications/Antigravity.app"]
             guard let path = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {

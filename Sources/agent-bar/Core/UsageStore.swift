@@ -352,7 +352,7 @@ final class UsageStore: ObservableObject {
     /// Antigravity is read from the one account signed in to it on this Mac.
     var hasAntigravityAccount: Bool { accounts.contains { $0.provider == .antigravity && !$0.deletionPending } }
     static var antigravityLimitMessage: String {
-        String(localized: "Only one Antigravity account is supported: the one signed in to Antigravity running on this Mac.")
+        String(localized: "Only one Antigravity account is supported: the one signed in to agy or the Antigravity app on this Mac.")
     }
     static var accountLimitMessage: String {
         String(localized: "The free version registers one account. \(AppInfo.proName) registers more.")

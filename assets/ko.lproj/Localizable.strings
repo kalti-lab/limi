@@ -8,7 +8,7 @@
 "%@ 5-hour limit" = "%@ 5시간 한도";
 "%@ 5h" = "%@ 5시간";
 "%@ Weekly" = "%@ 주간 한도";
-"%@ doesn't use your Antigravity sign-in; it reads usage from Antigravity running on this Mac. When Antigravity is closed it shows the last values and reset times, and it may stop working after an Antigravity update." = "%@ 앱은 Antigravity 로그인 정보를 쓰지 않고, 이 Mac에서 실행 중인 Antigravity에서 사용량을 읽습니다. Antigravity를 끄면 마지막 값과 초기화 시각을 보여 주며, Antigravity 업데이트 후 동작하지 않을 수 있습니다.";
+"%@ doesn't use your Antigravity sign-in; it asks agy on this Mac for usage, or the Antigravity app while it runs. It may stop working after an Antigravity update." = "%@ 앱은 Antigravity 로그인 정보를 쓰지 않고, 이 Mac의 agy에 사용량을 묻거나 실행 중인 Antigravity 앱에서 읽습니다. Antigravity 업데이트 뒤에는 동작하지 않을 수 있습니다.";
 "%@ plan" = "%@ 요금제";
 "%@ signs in through Claude Code and keeps that sign-in to read this account's usage. Anthropic's terms limit apps that keep Claude sign-ins, so Anthropic could block these reads at any time." = "%@ 앱은 Claude Code로 로그인한 뒤, 이 계정의 사용량을 읽으려고 그 로그인을 보관합니다. Anthropic 약관은 Claude 로그인을 보관하는 앱을 제한하므로, Anthropic이 언제든 이 조회를 막을 수 있습니다.";
 "%@ weekly" = "%@ 주간";
@@ -54,7 +54,7 @@
 "Anthropic is blocking apps other than Claude Code from reading Claude usage. Reconnecting will not help; check for a %@ update." = "Anthropic이 Claude Code가 아닌 앱의 Claude 사용량 조회를 막고 있습니다. 다시 연결해도 해결되지 않으니 %@ 업데이트를 확인하세요.";
 "Antigravity didn't report a signed-in account. Sign in to Antigravity, then try again." = "Antigravity가 로그인한 계정을 알려 주지 않았습니다. Antigravity에 로그인한 다음 다시 시도하세요.";
 "Antigravity isn't installed on this Mac. Install the Antigravity app or agy and sign in, then try again." = "이 Mac에 Antigravity가 설치되어 있지 않습니다. Antigravity 앱이나 agy를 설치하고 로그인한 다음 다시 시도하세요.";
-"Antigravity isn't running on this Mac. Open Antigravity or agy to refresh." = "이 Mac에서 Antigravity가 실행 중이 아닙니다. 새로 고치려면 Antigravity나 agy를 여세요.";
+"Antigravity isn't running on this Mac. Open the Antigravity app to refresh." = "이 Mac에서 Antigravity가 실행 중이 아닙니다. 새로 고치려면 Antigravity 앱을 여세요.";
 "Antigravity on this Mac is signed in to %@, not this account." = "이 Mac의 Antigravity는 이 계정이 아닌 %@ 계정으로 로그인되어 있습니다.";
 "Antigravity reported no limits for this account." = "Antigravity가 이 계정의 한도를 알려 주지 않았습니다.";
 "Available in %@" = "%@에서 쓸 수 있습니다";
@@ -115,7 +115,7 @@
 "Enable this account" = "이 계정 켜기";
 "Every usage percentage, arranged from left to right." = "모든 사용량 퍼센트를 왼쪽부터 차례로 보여 줍니다.";
 "Experimental" = "실험 기능";
-"Experimental · Supports the one account signed in to Antigravity running on this Mac." = "실험 기능 · 이 Mac에서 실행 중인 Antigravity에 로그인된 계정 1개만 지원합니다.";
+"Experimental · Supports the one account signed in to agy or the Antigravity app on this Mac." = "실험 기능 · 이 Mac의 agy나 Antigravity 앱에 로그인된 계정 1개만 지원합니다.";
 "Free" = "무료";
 "General" = "일반";
 "Get %@…" = "%@ 구매…";
@@ -147,9 +147,9 @@
 "No reset time" = "초기화 시각 없음";
 "Not shown in the menu bar" = "메뉴 막대에 없음";
 "One line per limit, up to three, each labelled account·limit." = "한도마다 한 줄씩 세 줄까지 보여 주며, 줄마다 계정·한도가 붙습니다.";
-"Only one Antigravity account is supported: the one signed in to Antigravity running on this Mac." = "Antigravity 계정은 이 Mac에서 실행 중인 Antigravity에 로그인된 계정 1개만 지원합니다.";
+"Only one Antigravity account is supported: the one signed in to agy or the Antigravity app on this Mac." = "Antigravity 계정은 이 Mac의 agy나 Antigravity 앱에 로그인된 계정 1개만 지원합니다.";
 "Only this display group is removed. Its accounts remain available. To keep its layout for later, turn off Show in menu bar instead." = "이 표시 그룹만 삭제되고 계정은 그대로 남습니다. 배치를 나중에 다시 쓰려면 삭제하는 대신 ‘메뉴 막대에 표시’를 끄세요.";
-"Open Antigravity or agy on this Mac and sign in, then try again." = "이 Mac에서 Antigravity나 agy를 열고 로그인한 다음 다시 시도하세요.";
+"Open the Antigravity app and sign in, or install agy, then try again." = "Antigravity 앱을 열고 로그인하거나 agy를 설치한 다음 다시 시도하세요.";
 "Open Login Items" = "로그인 항목 열기";
 "Open at Login" = "로그인 시 열기";
 "Open the %@ page" = "%@ 페이지 열기";
@@ -240,4 +240,5 @@
 "Version" = "버전";
 "Weekly" = "주간";
 "Weekly Limit" = "주간 한도";
+"agy on this Mac isn't signed in. Run agy in Terminal and sign in, then try again." = "이 Mac의 agy에 로그인되어 있지 않습니다. 터미널에서 agy를 실행해 로그인한 다음 다시 시도하세요.";
 "just now" = "방금";
