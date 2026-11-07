@@ -6,6 +6,37 @@ The app is called **Limi**. Its name is one setting, `app_name` in `scripts/buil
 
 This fork follows upstream (currently through v0.1.0 and later) and only changes the look and feel. Build it from source (see [Build and install](#build-and-install)); the prebuilt app on upstream's Releases page has the original UI.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/images/popover-claude.png" width="300" alt="Limi popover: 5-hour and weekly limits of a Claude account"><br>
+      <b>Limits for every account</b><br><sub>5-hour and weekly limits, and when they reset</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/images/popover-claude2.png" width="300" alt="Limi popover: the tab of a second Claude account"><br>
+      <b>Switch accounts with tabs</b><br><sub>Several accounts in one group</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <img src="docs/images/settings-accounts.png" width="400" alt="Limi Settings, Accounts tab: two Claude accounts and one Codex account"><br>
+      <b>Several accounts</b><br><sub>Claude Code and Codex accounts side by side</sub>
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/images/settings-general.png" width="400" alt="Limi Settings, General tab: refresh interval, language, open at login"><br>
+      <b>General settings</b><br><sub>Refresh interval, language, open at login</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <img src="docs/images/settings-menubar.png" width="460" alt="Limi Settings, Menu Bar tab: groups, styles and usage lines"><br>
+      <b>Make the menu bar yours</b><br><sub>Groups, styles and the limits to show (Pro)</sub>
+    </td>
+  </tr>
+</table>
+
 ## Changes from Original
 
 - Popover attaches directly under the menu bar item with no arrow, on the system menu material, sized to its content (closes on outside click or Escape)
