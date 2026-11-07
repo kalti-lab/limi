@@ -208,23 +208,34 @@ struct AntigravityUsageProvider: Sendable {
 
     // MARK: For Limi
 
-    /// The account signed in to `agy`, or to the running app, for connecting it.
-    func signedInAccount() async throws -> AccountIdentity {
+    /// The account signed in to `agy`, or to the running app, for connecting
+    /// it, with the limits it reports when they can be read.
+    func connect() async throws -> (identity: AccountIdentity, snapshot: ProviderSnapshot?) {
         let email: String?
+        let snapshot: ProviderSnapshot?
         if let agy = agy() {
-            email = Self.signedInEmail(fromLog: try await askAgy(agy).log)
+            let run = try await askAgy(agy)
+            email = Self.signedInEmail(fromLog: run.log)
+            snapshot = (try? Self.groups(fromQuotaSummary: run.output)).map {
+                self.snapshot(groups: $0, email: email, plan: nil, source: "agy /usage")
+            }
         } else {
             guard let endpoint = locate() else {
                 throw AccountError.message(String(localized: "Open the Antigravity app and sign in, or install agy, then try again."))
             }
-            email = try Self.status(from: try await call("GetUserStatus", at: endpoint)).email
+            let status = try Self.status(from: try await call("GetUserStatus", at: endpoint))
+            email = status.email
+            let groups = try? await Self.groups(fromQuotaSummary: call("RetrieveUserQuotaSummary", at: endpoint))
+            snapshot = groups.map { self.snapshot(groups: $0, email: email, plan: status.plan, source: "Antigravity app language server") }
         }
         guard let email else {
             throw AccountError.message(String(localized: "Antigravity didn't report a signed-in account. Sign in to Antigravity, then try again."))
         }
         // The email is all Antigravity reports to tell accounts apart.
-        return AccountIdentity(email: email, stableID: "antigravity:" + email.lowercased())
+        return (AccountIdentity(email: email, stableID: "antigravity:" + email.lowercased()), snapshot)
     }
+
+    func signedInAccount() async throws -> AccountIdentity { try await connect().identity }
 
     func load() async -> ProviderSnapshot {
         do {

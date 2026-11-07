@@ -5,6 +5,9 @@ import Foundation
 struct PendingAccountLogin {
     var account: UsageAccount
     var replacing: UUID?
+    /// The menu bar lines a new account starts with, when signing in already
+    /// showed its limits (Antigravity's model groups).
+    var firstLines: [String]? = nil
 }
 
 @MainActor
@@ -384,28 +387,30 @@ final class UsageStore: ObservableObject {
             }
         }
         loginTask = Task { [weak self] in
-            let result: Result<AccountIdentity, Error> = await Task.detached(priority: .utility) {
+            let result: Result<(AccountIdentity, [String]?), Error> = await Task.detached(priority: .utility) {
                 do {
-                    // No sign-in of its own: the account signed in to Antigravity is read.
+                    // No sign-in of its own: the account signed in to Antigravity is
+                    // read, along with its model groups for the first menu bar lines.
                     if provider == .antigravity {
-                        return .success(try await AntigravityUsageProvider().signedInAccount())
+                        let connected = try await AntigravityUsageProvider().connect()
+                        return .success((connected.identity, DisplayMetric.firstLines(connected.snapshot)))
                     }
                     if provider == .codex {
                         let rpc = try CodexRPC(directory: directory, control: control)
                         defer { rpc.stop() }
                         let identity = try rpc.login(openURL: openURL)
-                        return .success(identity)
+                        return .success((identity, nil))
                     }
-                    return .success(try ClaudeOAuthLauncher.login(directory: directory, control: control, openURL: openURL))
+                    return .success((try ClaudeOAuthLauncher.login(directory: directory, control: control, openURL: openURL), nil))
                 } catch { return .failure(error) }
             }.value
             guard let self, self.loginControl === control else { return }
             loginBrowser.close()
             loginAuthorizationURL = nil; canOpenPrivateLogin = false
-            if !control.cancelled, case .success(let identity) = result {
+            if !control.cancelled, case .success(let (identity, firstLines)) = result {
                 var completed = candidate; completed.identity = identity
                 completed.name = identity.email ?? "\(provider.displayName) account"
-                presentCompletedLogin(completed, replacing: replacing?.id)
+                presentCompletedLogin(completed, replacing: replacing?.id, firstLines: firstLines)
             } else {
                 loginMessage = nil
                 if !control.cancelled, case .failure(let error) = result { errorMessage = error.localizedDescription }
@@ -434,8 +439,8 @@ final class UsageStore: ObservableObject {
         }, cancelled: { [weak self] in self?.cancelLogin() })
     }
 
-    func presentCompletedLogin(_ account: UsageAccount, replacing: UUID?) {
-        pendingLogin = PendingAccountLogin(account: account, replacing: replacing)
+    func presentCompletedLogin(_ account: UsageAccount, replacing: UUID?, firstLines: [String]? = nil) {
+        pendingLogin = PendingAccountLogin(account: account, replacing: replacing, firstLines: firstLines)
         loginMessage = String(localized: "Review the signed-in account, then register it.")
         // Reconnecting an account proven to be the same leaves nothing to review.
         if reconnectionComparison == .same { confirmLogin() }
@@ -455,6 +460,7 @@ final class UsageStore: ObservableObject {
         guard let pending = pendingLogin else { return }
         var next = registry
         var incoming = pending.account
+        var added = false
         if let duplicate = next.accounts.first(where: {
             $0.provider == incoming.provider && $0.id != pending.replacing && $0.identity.map { incoming.identity?.comparison(to: $0) == .same } == true
         }) { errorMessage = String(localized: "This account is already registered: \(duplicate.title)"); return }
@@ -473,10 +479,18 @@ final class UsageStore: ObservableObject {
             let hasManaged = next.accounts.contains { $0.provider == incoming.provider && $0.isManaged && !$0.deletionPending }
             next.accounts.append(incoming)
             if !hasManaged { next.representatives[incoming.provider.rawValue] = incoming.id }
+            added = true
         }
         next.cleanupPending.removeAll { $0.credentialID == pending.account.credentialID }
         next.repairRepresentatives()
         guard commit(next) else { return }
+        if added, let lines = pending.firstLines, lines != ["weekly"] {
+            updateDisplay { config in
+                // Lines belong to groups, so settle the account-based layout first.
+                if config.layouts == nil { config.layouts = config.effectiveLayouts }
+                config.setFirstLines(incoming.id, lines)
+            }
+        }
         pendingLogin = nil; loginMessage = nil
         refreshNow()
         Task { await retryCleanup() }

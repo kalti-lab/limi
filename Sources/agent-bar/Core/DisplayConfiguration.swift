@@ -47,7 +47,12 @@ enum AccountColor: String, Codable, CaseIterable, Identifiable {
 }
 
 struct AccountDisplay: Codable, Equatable {
+    /// Claude's limits, from before other services; files without `bars` were Claude's.
     static let defaultBars: Set<String> = ["5h", "weekly", "model:fable"]
+    /// Only Claude has a Fable limit.
+    static func defaultBars(for provider: ProviderKind) -> Set<String> {
+        provider == .claude ? defaultBars : ["5h", "weekly"]
+    }
     var visible = true
     var badge: String
     var color: AccountColor
@@ -154,7 +159,8 @@ struct DisplayConfiguration: Codable, Equatable {
     }
 
     func display(_ account: UsageAccount) -> AccountDisplay {
-        accounts[account.id.uuidString] ?? AccountDisplay(badge: account.provider.shortName, color: .preferred(for: account.provider))
+        accounts[account.id.uuidString] ?? AccountDisplay(badge: account.provider.shortName, color: .preferred(for: account.provider),
+                                                          bars: AccountDisplay.defaultBars(for: account.provider))
     }
     func isVisible(_ id: UUID) -> Bool { accounts[id.uuidString]?.visible ?? true }
     var visibleAccountIDs: [UUID] {
@@ -228,16 +234,28 @@ struct DisplayConfiguration: Codable, Equatable {
             let siblings = live.filter { $0.provider == account.provider && accounts[$0.id.uuidString] != nil }
             var badge = account.provider.shortName
             if siblings.contains(where: { accounts[$0.id.uuidString]?.badge == badge }) { badge += "\(siblings.count + 1)" }
-            accounts[account.id.uuidString] = AccountDisplay(badge: badge, color: .next(for: account.provider, used: used))
+            accounts[account.id.uuidString] = AccountDisplay(badge: badge, color: .next(for: account.provider, used: used),
+                                                             bars: AccountDisplay.defaultBars(for: account.provider))
         }
-        // Early v2 gave every provider Claude's default extra limits. Codex never
-        // exposed Fable, so do not turn that dormant checkbox into a visible row.
-        if layouts == nil {
-            for account in live where account.provider == .codex {
-                accounts[account.id.uuidString]?.bars.remove("model:fable")
-            }
+        // Earlier versions gave every new account Claude's extra limits. Only
+        // Claude has Fable, so do not let that dormant choice become a row.
+        for account in live where account.provider != .claude {
+            accounts[account.id.uuidString]?.bars.remove("model:fable")
         }
         for account in live where !order.contains(account.id) { order.append(account.id) }
+    }
+    /// Gives an account just added its first lines in place of the single
+    /// weekly line `sync` gave it, as far as its group has room.
+    mutating func setFirstLines(_ id: UUID, _ metricIDs: [String]) {
+        guard let first = metricIDs.first else { return }
+        accounts[id.uuidString]?.primary = first
+        accounts[id.uuidString]?.bars = Set(metricIDs)
+        guard let index = layouts?.firstIndex(where: { $0.rows.contains { $0.accountID == id } }) else { return }
+        var layout = layouts![index]
+        let others = layout.rows.filter { $0.accountID != id }
+        let room = layout.style == .text ? metricIDs.count : max(1, MenuBarLayout.maximumLines - others.count)
+        layout.rows = others + metricIDs.prefix(room).map { MenuBarLine(accountID: id, metricID: $0) }
+        layouts![index] = layout
     }
     var valid: Bool {
         (layouts.map { groups in Set(groups.map(\.id)).count == groups.count && groups.allSatisfy { $0.valid && $0.rows.allSatisfy { accounts[$0.accountID.uuidString] != nil } } } ?? true)
@@ -400,6 +418,16 @@ struct DisplayMetric: Identifiable {
             if !result.contains(where: { $0.id == key }) { result.append(Self(id: key, title: model.label + " Weekly", window: model.window)) }
         }
         return result
+    }
+    /// The lines a newly added account starts with: its weekly limit, and for
+    /// Antigravity each model group's, since every group has its own limits.
+    static func firstLines(_ snapshot: ProviderSnapshot?) -> [String] {
+        guard let snapshot, let groups = snapshot.limitGroups, groups.count > 1 else { return ["weekly"] }
+        let metrics = all(snapshot)
+        let lines = groups.compactMap { group in
+            (metrics.first { $0.group == group.label && $0.id.hasSuffix("weekly") } ?? metrics.first { $0.group == group.label })?.id
+        }
+        return Array((lines.isEmpty ? ["weekly"] : lines).prefix(MenuBarLayout.maximumLines))
     }
     // The menu bar draws the chosen metric, or another one while it has no data.
     static func menuBar(_ snapshot: ProviderSnapshot, preferred: String) -> Self {
