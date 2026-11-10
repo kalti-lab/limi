@@ -32,4 +32,16 @@ jobs:
           chmod 600 ~/.ssh/kalti_mirror
           echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > ~/.ssh/known_hosts
           export GIT_SSH_COMMAND='ssh -i ~/.ssh/kalti_mirror -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes'
-          git push git@github.com:kalti-lab/limi.git "${GITHUB_REF}:${GITHUB_REF}"
+          remote=git@github.com:kalti-lab/limi.git
+          # A tag is usually there already: origin pushes to both repositories at
+          # once. Checkout makes it a lightweight tag here, which kalti-lab/limi
+          # would reject as a different tag, so one naming the same commit is skipped.
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            there=$(git ls-remote "$remote" "$GITHUB_REF^{}" "$GITHUB_REF" \
+              | awk -v ref="$GITHUB_REF" '$2 == (ref "^{}") { peeled = $1 } $2 == ref { plain = $1 } END { print (peeled != "" ? peeled : plain) }')
+            if [[ "$there" == "$GITHUB_SHA" ]]; then
+              echo "$GITHUB_REF is already on kalti-lab/limi at $GITHUB_SHA"
+              exit 0
+            fi
+          fi
+          git push "$remote" "${GITHUB_REF}:${GITHUB_REF}"
