@@ -15,6 +15,7 @@ final class AgentBarAppDelegate: NSObject, NSApplicationDelegate {
             store: AppContainer.shared.store,
             providers: AppContainer.shared.availableProviders
         )
+        Updates.start()
         if AppRelauncher.takeReopenSettingsRequest() {
             // Back where the language was changed, now in that language.
             SettingsWindowController.shared.show(tab: .general)
