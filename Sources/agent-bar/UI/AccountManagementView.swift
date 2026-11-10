@@ -55,15 +55,9 @@ struct AccountManagementView: View {
                     && !store.isLoggingIn && store.pendingLogin == nil {
                     Button("Retry Pending Cleanup") { Task { await store.retryCleanup() } }
                 }
-                if !store.canAddAccount {
-                    Label(UsageStore.accountLimitMessage, systemImage: "lock.fill")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
                 Spacer()
-                if !store.canAddAccount { ProBadge() }
                 Button("Add Account…") { choosingProvider = true }
-                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable || !store.canAddAccount)
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
             }
             // Asked once, before the first Claude sign-in it covers.
             .alert("How \(AppInfo.name) reads Claude usage", isPresented: Binding(get: { claudeConsent != nil }, set: { if !$0 { claudeConsent = nil } }),
@@ -320,10 +314,9 @@ struct LoginProgressView: View {
             Button("Add Account") { store.confirmLogin() }.keyboardShortcut(.defaultAction)
         } else if store.reconnectionComparison == .different {
             Button("Add Account") { store.confirmLogin(addAsNew: true) }.keyboardShortcut(.defaultAction)
-                .disabled(!store.canAddAccount)
         } else if store.reconnectionComparison != .same {
             Button("Reconnect") { store.confirmLogin(replaceUnverified: true) }.keyboardShortcut(.defaultAction)
-            Button("Add Account") { store.confirmLogin(addAsNew: true) }.disabled(!store.canAddAccount)
+            Button("Add Account") { store.confirmLogin(addAsNew: true) }
         } else {
             Button("Reconnect") { store.confirmLogin() }.keyboardShortcut(.defaultAction)
         }

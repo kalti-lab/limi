@@ -1,12 +1,11 @@
 // Draws the AgentBar app icon: three stacked usage bars of different colors
-// and lengths on a macOS-style rounded square. Writes a 1024px PNG; --free adds
-// the free edition's FREE ribbon. scripts/make-app-icons.sh turns it into .icns.
-//   swift scripts/make-app-icon.swift <output.png> [--free]
+// and lengths on a macOS-style rounded square. Writes a 1024px PNG;
+// scripts/make-app-icons.sh turns it into .icns.
+//   swift scripts/make-app-icon.swift <output.png>
 import AppKit
 
 let arguments = CommandLine.arguments.dropFirst()
 let output = arguments.first { !$0.hasPrefix("--") } ?? "AppIcon-1024.png"
-let free = arguments.contains("--free")
 let size: CGFloat = 1024
 // macOS icon grid: an 824pt body centered on the 1024pt canvas.
 let body = NSRect(x: 100, y: 100, width: 824, height: 824)
@@ -67,34 +66,6 @@ for bar in bars {
     NSRect(x: fillRect.minX, y: fillRect.maxY - barHeight * 0.32, width: fillRect.width, height: barHeight * 0.32).fill()
     NSGraphicsContext.restoreGraphicsState()
     y -= barHeight + gap
-}
-
-// The free edition wears a FREE ribbon across the top-right corner, clear of
-// the bars, so it reads as the free one at a glance.
-if free {
-    NSGraphicsContext.saveGraphicsState()
-    shape.addClip()
-    let turn = NSAffineTransform()
-    turn.translateX(by: body.maxX - 150, yBy: body.maxY - 150)
-    turn.rotate(byDegrees: -45)
-    turn.concat()
-    let band = NSRect(x: -460, y: -66, width: 920, height: 132)
-    NSGraphicsContext.saveGraphicsState()
-    let ribbonShadow = NSShadow()
-    ribbonShadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
-    ribbonShadow.shadowOffset = NSSize(width: 0, height: -6)
-    ribbonShadow.shadowBlurRadius = 14
-    ribbonShadow.set()
-    color(0xF05A28).setFill()
-    NSBezierPath(rect: band).fill()
-    NSGraphicsContext.restoreGraphicsState()
-    NSGradient(starting: color(0xFF9A4D), ending: color(0xEE5524))!.draw(in: band, angle: -90)
-    let heavy = NSFont.systemFont(ofSize: 82, weight: .heavy)
-    let font = heavy.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 82) } ?? heavy
-    let label = NSAttributedString(string: "FREE", attributes: [.font: font, .foregroundColor: NSColor.white, .kern: 10])
-    // Center the capitals, not the line box, on the band.
-    label.draw(at: NSPoint(x: -label.size().width / 2 + 5, y: -font.capHeight / 2 + font.descender))
-    NSGraphicsContext.restoreGraphicsState()
 }
 
 NSGraphicsContext.restoreGraphicsState()

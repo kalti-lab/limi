@@ -50,13 +50,8 @@ final class UsageStore: ObservableObject {
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
-    /// Fixed at build time; tests pass one to check either edition.
-    let edition: AppEdition
-
     init(settings: AppSettings, files: AccountFiles = AccountFiles(), autoRefresh: Bool = true,
-         edition: AppEdition = .current,
          loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)? = nil) {
-        self.edition = edition
         self.settings = settings
         self.automaticRefresh = autoRefresh
         self.loadAccount = loadAccount
@@ -346,25 +341,14 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    /// Whether another account fits this edition. Accounts already registered
-    /// stay, even past the limit, so a Pro install moved to Free loses nothing.
-    var canAddAccount: Bool {
-        guard let limit = edition.accountLimit else { return true }
-        return accounts.filter { !$0.deletionPending }.count < limit
-    }
     /// Antigravity is read from the one account signed in to it on this Mac.
     var hasAntigravityAccount: Bool { accounts.contains { $0.provider == .antigravity && !$0.deletionPending } }
     static var antigravityLimitMessage: String {
         String(localized: "Only one Antigravity account is supported: the one signed in to agy or the Antigravity app on this Mac.")
     }
-    static var accountLimitMessage: String {
-        String(localized: "The free version registers one account. \(AppInfo.proName) registers more.")
-    }
 
     func startLogin(_ provider: ProviderKind, replacing: UsageAccount? = nil) {
         guard !isLoggingIn, pendingLogin == nil, !storageUnavailable else { return }
-        // Reconnecting keeps the count; only a new account must fit.
-        guard replacing != nil || canAddAccount else { errorMessage = Self.accountLimitMessage; return }
         guard provider != .antigravity || replacing != nil || !hasAntigravityAccount else {
             errorMessage = Self.antigravityLimitMessage; return
         }
@@ -474,7 +458,6 @@ final class UsageStore: ObservableObject {
             if old.isManaged { next.cleanupPending.append(old) }
             controls[id]?.cancel(); snapshots[id] = nil; nextEligibleRefresh[id] = nil
         } else {
-            guard canAddAccount else { errorMessage = Self.accountLimitMessage; return }
             guard incoming.provider != .antigravity || !hasAntigravityAccount else { errorMessage = Self.antigravityLimitMessage; return }
             let hasManaged = next.accounts.contains { $0.provider == incoming.provider && $0.isManaged && !$0.deletionPending }
             next.accounts.append(incoming)

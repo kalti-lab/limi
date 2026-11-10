@@ -89,7 +89,7 @@ struct AntigravityAccountTests {
                                     identity: AccountIdentity(email: "someone@gmail.com"), credentialID: UUID())
         var registry = AccountRegistry(accounts: [existing]); registry.repairRepresentatives()
         try files.write(registry, to: files.registryURL)
-        let store = UsageStore(settings: AppSettings(defaults: defaults), files: files, autoRefresh: false, edition: .pro)
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: files, autoRefresh: false)
         defer { store.shutdown() }
         // Refused before anything is read from Antigravity.
         store.startLogin(.antigravity)

@@ -82,7 +82,7 @@ struct NewAccountLinesTests {
         let defaults = UserDefaults(suiteName: suite)!
         let files = AccountFiles(root: FileManager.default.temporaryDirectory.appendingPathComponent("first-lines-\(UUID())"))
         defer { try? FileManager.default.removeItem(at: files.root); defaults.removePersistentDomain(forName: suite) }
-        let store = UsageStore(settings: AppSettings(defaults: defaults), files: files, autoRefresh: false, edition: .pro,
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: files, autoRefresh: false,
                                loadAccount: { account, _ in ProviderSnapshot.placeholder(for: account.provider) })
         defer { store.shutdown() }
         var signedIn = account(.antigravity)

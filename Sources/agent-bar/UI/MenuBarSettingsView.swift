@@ -36,15 +36,7 @@ struct MenuBarSettingsView: View {
                 MenuBarPreview(groups: groups, selectedID: selected?.id)
             }
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    SettingsSectionTitle("Groups")
-                    if !store.edition.customizesMenuBar { ProBadge() }
-                }
-                if !store.edition.customizesMenuBar {
-                    Label("Customizing the menu bar is available in \(AppInfo.proName).", systemImage: "lock.fill")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .padding(.leading, SettingsStyle.rowInsets.leading)
-                }
+                SettingsSectionTitle("Groups")
                 VStack(alignment: .leading, spacing: 0) {
                     groupTabs
                     if let selected { MenuBarGroupEditor(group: selected).id(selected.id) }
@@ -57,7 +49,6 @@ struct MenuBarSettingsView: View {
                                         in: RoundedRectangle(cornerRadius: SettingsStyle.cornerRadius, style: .continuous))
                     }
                 }
-                .disabled(!store.edition.customizesMenuBar)
             }
             if store.displayWidthWarning { Text("These groups use a large portion of the menu bar.").font(.caption).foregroundStyle(.orange) }
         }
