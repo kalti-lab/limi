@@ -85,6 +85,7 @@
 
 Also in Limi:
 
+- **Use in Claude Code**: switch the login your own `claude` uses to one of your Claude accounts in one click, without the browser each time ([how it works](#use-in-claude-code)).
 - **Antigravity** (experimental): the one account signed in to `agy` or the Antigravity app on this Mac.
 - Claude's per-model weekly limits and Antigravity's model groups, when the service reports them.
 - Up to three usage lines in each menu bar group, taken from any accounts and limits (Ring Gauge shows one, Text Only any number). Drag groups, lines and accounts to reorder them.
@@ -140,7 +141,7 @@ Limi starts with no accounts, so it opens **Settings › Accounts**. Click **Add
 
 - Before your first Claude account, Limi explains how it keeps Claude sign-ins and asks you to agree (see [Claude and Anthropic's terms](#claude-and-anthropics-terms)).
 - To add an account other than the one your browser is signed in to, choose **Switch account** on Claude's approval page (this also switches your claude.ai login) or **Sign in with another account** on the ChatGPT page. **Use Private Window Instead** in Limi signs in from a private browser window, apart from your usual browser session.
-- Signing in through Limi does not change the login of your own `claude` or `codex`.
+- Signing in through Limi does not change the login of your own `claude` or `codex`. Only **Use in Claude Code** changes your `claude` login, when you press it.
 - Limi looks for the tools in these places, not in your shell's `PATH`:
   - `claude`: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, `~/.bun/bin`
   - `codex`: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.bun/bin`
@@ -167,15 +168,27 @@ The first build downloads [Sparkle](https://github.com/sparkle-project/Sparkle) 
 
 Limi has no server and no account of its own. It reads the sign-ins stored on this Mac and asks each service directly.
 
-- **Sign-ins.** Every account you add gets a private folder under `~/.agentbar/multi-account-v1/` that only your macOS user can read, and Limi reads the sign-in it keeps there. Limi never imports, follows or changes the logins of your own `claude`, `codex` or `agy`. Deleting an account in Settings removes its sign-in and cached usage.
+- **Sign-ins.** Every account you add gets a private folder under `~/.agentbar/multi-account-v1/` that only your macOS user can read, and Limi reads the sign-in it keeps there. Limi never imports, follows or changes the logins of your own `claude`, `codex` or `agy`, except that **Use in Claude Code** changes your `claude` login when you press it ([below](#use-in-claude-code)). Deleting an account in Settings removes its sign-ins and cached usage.
 - **Claude.** Limi calls Anthropic's OAuth usage API (`api.anthropic.com/api/oauth/usage`) itself with the account's token, and names itself `Limi/<version>` in the request. When the token expires, Limi renews it itself with the refresh token, and only for accounts Limi manages. Right after sign-in, Limi copies the credential Claude Code saved in the Keychain into the account's folder once; after that it reads only that file.
 - **Codex.** Limi reads through the official `codex app-server` (`account/read` and `account/rateLimits/read`), started separately for each account with its own `CODEX_HOME`. The Codex CLI makes the network requests.
 - **Antigravity.** Limi never holds the Antigravity sign-in. It runs `agy -p /usage`, which prints the quota report without starting a model turn, so it uses no quota. Limi runs it without a terminal and with nothing it could open a browser with, so a signed-out `agy` stops at once and the account asks you to sign in. Without `agy`, Limi asks the Antigravity app's local server (`127.0.0.1`) while the app is open.
 - **Nothing goes to KALTI.** Limi has no analytics or telemetry. It connects to kalti.co.kr only to check for updates, and update files are downloaded from GitHub Releases.
 
+### Use in Claude Code
+
+In a Claude account's panel, **Use in Claude Code** switches the login your own `claude` uses (its default login, the Keychain item `Claude Code-credentials`) to that account. Every Claude Code session moves to it, open ones within about 30 seconds, and Remote Control disconnects. The account Claude Code uses shows **In Claude Code**.
+
+- **Set up once per account.** In **Settings › Accounts**, **Set Up…** has Claude Code sign that account in through your browser, into a folder of its own (`~/.agentbar/multi-account-v1/lend/<account ID>/`). This login is separate from the one Limi reads usage with, so switching never stops the usage display.
+- **Only Claude Code writes a login.** Limi runs `claude auth login` with the account's refresh token in `CLAUDE_CODE_OAUTH_REFRESH_TOKEN` ([Claude Code's environment variables](https://code.claude.com/docs/en/env-vars)), and for this reads Keychain items only through `/usr/bin/security`, so no Keychain prompt appears.
+- **A refresh token is used once.** Handing a login over uses it up, so Limi never hands the same one over twice. The login Claude Code had goes back to its own account, so switching back needs no browser either. If an open session renews that login in the middle of a switch, that account is set up once more.
+- **Checked afterwards.** Limi reads Claude Code's login again after switching and says so if it is not the account you chose. If Claude Code is signed in to an account that isn't in Limi, Limi asks first, since switching removes that login from Claude Code. Quitting waits for a running switch to finish (up to 90 seconds); if Limi still stops halfway, it finishes or undoes the switch on its next launch.
+- **Read only when you look.** To show **In Claude Code**, Limi checks which account Claude Code uses when you open a panel or **Settings › Accounts**, or press refresh: whether its Keychain item exists (never the token) and the account in `~/.claude.json`. The periodic refresh does not, so nothing can bring up a Keychain window while you are away.
+- **Logged without tokens** in `~/.agentbar/multi-account-v1/logs/claude-code-switch.log` (**Open Log**).
+- Needs Claude Code 2.1.309 or later. Deleting an account removes its saved sign-in for Claude Code; Claude Code's own login stays as it is. Only the app has it: `swift run` and development runs with `AGENTBAR_DATA_DIR` or `AGENTBAR_DEFAULTS_SUITE` set do not.
+
 ### Claude and Anthropic's terms
 
-Anthropic's [terms for Claude Code](https://code.claude.com/docs/en/legal-and-compliance) limit apps that keep Claude sign-ins, so Anthropic could block these reads at any time. Limi says so and asks once, before your first Claude account. If Anthropic blocks the reads, the account tells you so instead of asking you to reconnect, since reconnecting cannot help.
+Anthropic's [terms for Claude Code](https://code.claude.com/docs/en/legal-and-compliance) limit apps that keep Claude sign-ins, so Anthropic could block these reads at any time. Limi says so and asks once, before your first Claude account. If Anthropic blocks the reads, the account tells you so instead of asking you to reconnect, since reconnecting cannot help. **Use in Claude Code** switches only when you press it, and only between accounts you signed in to yourself; it never switches on its own, for example when a limit is reached.
 
 ### Antigravity and Google's terms
 

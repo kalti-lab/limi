@@ -125,6 +125,11 @@ final class StatusBarController {
                 Task { @MainActor in self?.reapply() }
             }
         }
+        // A Claude Code result line is cleared once a panel that showed its account closes.
+        panel.onClose = { [weak self] in
+            guard let self else { return }
+            self.store.claudeCodePanelDidClose(group: self.groupID)
+        }
         statusItem.autosaveName = "account-" + self.positionID.uuidString
         statusItem.button?.target = self
         statusItem.button?.action = #selector(toggle(_:))
@@ -179,7 +184,11 @@ final class StatusBarController {
         store.selectMenuBarGroup(groupID)
         if entries.isEmpty { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID); return }
         // The panel sizes itself to its content.
-        if panel.isShown { panel.close() } else { panel.show(below: button) }
+        if panel.isShown { panel.close() } else {
+            // The login Claude Code uses may have been changed in a terminal since it was last read.
+            store.claudeCodePanelWillOpen(group: groupID)
+            panel.show(below: button)
+        }
     }
 }
 

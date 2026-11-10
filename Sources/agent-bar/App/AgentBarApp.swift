@@ -4,6 +4,20 @@ import SwiftUI
 final class AgentBarAppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: StatusBarCoordinator?
 
+    // A switch that is handing a login to Claude Code finishes before the app quits, so the login it holds only in memory
+    // is not lost. Quit, Restart Now and an update all come through here. After 90 s it quits anyway; the next launch then
+    // finishes or undoes the switch.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let store = AppContainer.shared.store
+        guard store.claudeCodeActivity != nil else { return .terminateNow }
+        Task { @MainActor in
+            let deadline = Date().addingTimeInterval(90)
+            while store.claudeCodeActivity != nil && Date() < deadline { try? await Task.sleep(for: .milliseconds(100)) }
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         AppContainer.shared.store.shutdown()
         ProcessSession.stopAll()

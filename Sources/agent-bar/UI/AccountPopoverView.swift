@@ -26,6 +26,11 @@ struct AccountPopoverView: View {
             }
             if let account {
                 header(account)
+                let claudeCodeLines = store.claudeCodePanel(for: account).lines
+                if !claudeCodeLines.isEmpty {
+                    ClaudeCodeLinesView(lines: claudeCodeLines, confirm: { store.confirmClaudeCodeSwitch() },
+                                        decline: { store.cancelClaudeCodeConfirmation() }, openLog: { store.openClaudeCodeLog() })
+                }
                 Divider()
                 // Scroll only when the cards outgrow the screen.
                 ViewThatFits(in: .vertical) {
@@ -42,6 +47,11 @@ struct AccountPopoverView: View {
         }
         .padding(14)
         .frame(width: Self.width, alignment: .topLeading)
+        // Which account the panel shows, for the Claude Code result lines. The group is part of the key: a menu bar item
+        // that comes to show another group keeps this view.
+        .onChange(of: [groupID, account?.id], initial: true) { _, _ in
+            if let id = account?.id, let groupID { store.claudeCodePanelShows(id, group: groupID) }
+        }
     }
 
     private func header(_ account: UsageAccount) -> some View {
@@ -53,9 +63,14 @@ struct AccountPopoverView: View {
                     .font(.headline)
                     .lineLimit(1)
                     .textSelection(.enabled)
-                Text(account.provider.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(account.provider.displayName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ClaudeCodeControlView(control: store.claudeCodePanel(for: account).control,
+                                          use: { store.useInClaudeCode(account) },
+                                          setUp: { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) })
+                }
             }
             Spacer(minLength: 8)
             if store.refreshingAccounts.contains(account.id) {

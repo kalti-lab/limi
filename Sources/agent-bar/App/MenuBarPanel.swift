@@ -19,6 +19,8 @@ final class MenuBarPanel<Content: View> {
         set { host.rootView = newValue }
     }
     var isShown: Bool { panel.isVisible }
+    // Called after the panel closes, however it was closed.
+    var onClose: (() -> Void)?
 
     init(rootView: Content) {
         host = ResizingHostingView(rootView: rootView)
@@ -63,6 +65,7 @@ final class MenuBarPanel<Content: View> {
         guard panel.isVisible else { return }
         stopMonitoring()
         panel.orderOut(nil)
+        onClose?()
     }
 
     private func layout() {

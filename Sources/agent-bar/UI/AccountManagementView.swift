@@ -85,7 +85,15 @@ struct AccountManagementView: View {
             Button("Delete", role: .destructive) {
                 if let account = deleting { Task { await store.delete(account) } }; deleting = nil
             }
-        } message: { Text("This removes only the selected account’s \(AppInfo.name) credentials and usage cache. External CLI sign-ins are preserved.") }
+        } message: {
+            if deleting?.provider == .claude && store.claudeCodeEnabled {
+                Text("This removes only the selected account’s \(AppInfo.name) credentials, usage cache and the sign-in saved for Use in Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved.")
+            } else {
+                Text("This removes only the selected account’s \(AppInfo.name) credentials and usage cache. External CLI sign-ins are preserved.")
+            }
+        }
+        // Claude Code may have been switched in a terminal since it was last read.
+        .onAppear { store.refreshClaudeCodeState() }
     }
     private func row(_ account: UsageAccount, preview: Bool = false) -> some View {
         let snapshot = store.snapshot(for: account)
@@ -129,20 +137,28 @@ struct AccountManagementView: View {
                                                     refreshing: store.refreshingAccounts.contains(account.id),
                                                     now: context.date))
                 }
+                ClaudeCodeSetupView(setup: store.claudeCodeSetup(for: account), setUp: { store.prepareForClaudeCode(account) },
+                                    cancel: { store.cancelClaudeCodePreparation() }, openLog: { store.openClaudeCodeLog() })
+                if let note = store.claudeCodeLockNote(for: account) {
+                    Text(note).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer()
+            // An account a switch or a sign-in for Claude Code involves keeps its sign-ins until that is done.
+            let claudeCodeLocked = store.isClaudeCodeLocked(account)
             if snapshot.requiresLogin && !account.deletionPending {
                 Button("Reconnect") { connect(account.provider, replacing: account) }
                     .controlSize(.small)
-                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable || claudeCodeLocked)
             }
             Menu {
                 Button("Rename") { editing = account }
                     .disabled(account.deletionPending || store.storageUnavailable)
                 Button("Reconnect") { connect(account.provider, replacing: account) }
-                    .disabled(store.isLoggingIn || store.pendingLogin != nil || account.deletionPending || store.storageUnavailable)
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || account.deletionPending || store.storageUnavailable || claudeCodeLocked)
                 Button("Delete", role: .destructive) { deleting = account }
-                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable)
+                    .disabled(store.isLoggingIn || store.pendingLogin != nil || store.storageUnavailable || claudeCodeLocked)
             } label: { Image(systemName: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .help("Account options")
