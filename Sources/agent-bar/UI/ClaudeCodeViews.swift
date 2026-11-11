@@ -52,20 +52,24 @@ struct ClaudeCodeControlView: View {
         case .hidden:
             EmptyView()
         case .inClaudeCode:
-            Text("In Claude Code")
-                .font(.caption2.weight(.semibold))
+            // A state, not a button: no background, a check beside the words.
+            Label("In Claude Code", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.green)
-                .padding(.horizontal, 6).padding(.vertical, 1)
-                .background(Color.green.opacity(0.14), in: Capsule())
                 .fixedSize()
                 .help("Claude Code is signed in to this account.")
         case .use(let enabled, let help):
-            Button(action: use) { Text("Use in Claude Code").font(.caption.weight(.semibold)) }
+            // A real button, even inside the header's borderless ones; a blocked one is grey but still a button.
+            Button("Use in Claude Code", action: use)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .disabled(!enabled)
                 .fixedSize()
                 .help(help)
         case .setUp(let help):
-            Button(action: setUp) { Text("Set Up in Settings…").font(.caption.weight(.semibold)) }
+            Button("Set Up in Settings…", action: setUp)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .fixedSize()
                 .help(help)
         }
@@ -179,7 +183,8 @@ struct ClaudeCodeSetupView: View {
                     }
                 }
             }
-            .font(.caption)
+            // A size up from the status line above it, so it does not read as part of "Updated …".
+            .font(.callout)
             .controlSize(.small)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -191,13 +196,17 @@ struct ClaudeCodeSetupView: View {
         case .hidden:
             EmptyView()
         case .inClaudeCode:
-            Label("In Claude Code", systemImage: "terminal")
-                .foregroundStyle(.secondary)
+            Label("In Claude Code", systemImage: "checkmark.circle.fill")
+                .fontWeight(.semibold)
+                .foregroundStyle(.green)
                 .help("Claude Code is signed in to this account.")
         case .ready:
-            Label("Ready for Claude Code", systemImage: "checkmark.circle")
-                .foregroundStyle(.secondary)
-                .help("Switching Claude Code to this account needs no browser.")
+            Label {
+                Text("Ready for Claude Code")
+            } icon: {
+                Image(systemName: "checkmark.circle").foregroundStyle(Color.accentColor)
+            }
+            .help("Switching Claude Code to this account needs no browser.")
         case .notSetUp(let blocked):
             HStack(spacing: 8) {
                 Text("Not set up for Claude Code").foregroundStyle(.secondary)
