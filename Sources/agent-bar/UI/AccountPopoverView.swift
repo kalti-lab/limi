@@ -74,17 +74,24 @@ struct AccountPopoverView: View {
                 }
             }
             Spacer(minLength: 8)
-            if store.refreshingAccounts.contains(account.id) {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Button { store.refreshNow() } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Refresh now")
+            // Side by side, so their hover backgrounds touch and the icons keep their old spacing.
+            HStack(spacing: 0) {
+                if store.refreshingAccounts.contains(account.id) {
+                    // The room the refresh button takes, so the header does not shift while it turns.
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 24, height: 24)
+                } else {
+                    Button { store.refreshNow() } label: { Image(systemName: "arrow.clockwise") }
+                        .help("Refresh now")
+                }
+                Button { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID) } label: { Image(systemName: "gearshape") }
+                    .help("Settings")
             }
-            Button { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID) } label: { Image(systemName: "gearshape") }
-                .help("Settings")
+            .buttonStyle(PanelButtonStyle(kind: .icon))
+            // The icons stay where they were; only their hover background reaches past them.
+            .padding(.trailing, -4)
         }
-        .buttonStyle(.borderless)
     }
 
     @ViewBuilder private func content(_ account: UsageAccount) -> some View {
@@ -130,10 +137,13 @@ struct AccountPopoverView: View {
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            Button("Accounts…") { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) }
-            Button("Quit") { NSApplication.shared.terminate(nil) }
+            HStack(spacing: 0) {
+                Button("Accounts…") { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) }
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+            }
+            .buttonStyle(PanelButtonStyle(kind: .text))
+            .padding(.trailing, -6)
         }
-        .buttonStyle(.borderless)
         .font(.callout)
         .foregroundStyle(.secondary)
     }

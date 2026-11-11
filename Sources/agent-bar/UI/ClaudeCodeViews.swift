@@ -64,15 +64,13 @@ struct ClaudeCodeControlView: View {
         case .use(let enabled, let help):
             // A real button, even inside the header's borderless ones; a blocked one is grey but still a button.
             Button(action: use) { Text("Use in Claude Code").font(Self.textFont) }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(PanelBorderedButtonStyle())
                 .disabled(!enabled)
                 .fixedSize()
                 .help(help)
         case .setUp(let help):
             Button(action: setUp) { Text("Set Up in Settings…").font(Self.textFont) }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(PanelBorderedButtonStyle())
                 .fixedSize()
                 .help(help)
         }
@@ -83,8 +81,7 @@ extension ClaudeCodeControlView {
     // Draws nothing and takes no width; a line that holds it is as tall as one with the button.
     static var heightTemplate: some View {
         Button {} label: { Text("Use in Claude Code").font(textFont) }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(PanelBorderedButtonStyle())
             .fixedSize()
             .hidden()
             .accessibilityHidden(true)
@@ -126,7 +123,7 @@ struct ClaudeCodeLinesView: View {
                     Button("Cancel", action: decline)
                     Button("Switch", action: confirm)
                 }
-                .controlSize(.small)
+                .buttonStyle(PanelBorderedButtonStyle())
             }
         case .result(let succeeded, let message):
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -140,7 +137,7 @@ struct ClaudeCodeLinesView: View {
                 if !succeeded, let openLog {
                     Spacer(minLength: 4)
                     Button("Open Log", action: openLog)
-                        .buttonStyle(.borderless)
+                        .buttonStyle(PanelButtonStyle(kind: .text))
                         .help("Opens the Claude Code switch log, which records each step of every switch.")
                 }
             }
