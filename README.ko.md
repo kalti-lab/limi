@@ -58,6 +58,14 @@
 
 <table>
   <tr>
+    <td valign="top" colspan="2">
+      <img src="docs/images/cap-switch.svg" width="52" height="52" alt=""><br>
+      <b>Claude Code 계정을 클릭 한 번에</b> <sup>새 기능</sup><br>
+      평소 쓰는 <code>claude</code>가 쓸 계정을 내 Claude 계정 가운데서 고릅니다. 처음 한 번 로그인해 두면 브라우저가 뜨지 않고, 열린 세션도 30초 안에 따라옵니다.<br><br>
+      <img src="docs/images/claude-code-switch.png" width="300" alt="Limi 패널: CL2 탭, Claude 옆의 Use in Claude Code 단추">
+    </td>
+  </tr>
+  <tr>
     <td valign="top" width="50%">
       <img src="docs/images/cap-accounts.svg" width="52" height="52" alt=""><br>
       <b>계정 여러 개를 한눈에</b><br>

@@ -58,6 +58,14 @@
 
 <table>
   <tr>
+    <td valign="top" colspan="2">
+      <img src="docs/images/cap-switch.svg" width="52" height="52" alt=""><br>
+      <b>Switch Claude Code accounts in one click</b> <sup>NEW</sup><br>
+      Choose which of your Claude accounts your own <code>claude</code> uses. After a one-time sign-in no browser opens, and open sessions follow within 30 seconds.<br><br>
+      <img src="docs/images/claude-code-switch.png" width="300" alt="Limi panel: the CL2 tab, with a Use in Claude Code button beside Claude">
+    </td>
+  </tr>
+  <tr>
     <td valign="top" width="50%">
       <img src="docs/images/cap-accounts.svg" width="52" height="52" alt=""><br>
       <b>All your accounts at a glance</b><br>
