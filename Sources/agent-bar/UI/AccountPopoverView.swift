@@ -57,7 +57,8 @@ struct AccountPopoverView: View {
     private func header(_ account: UsageAccount) -> some View {
         let display = store.displayConfiguration.display(account)
         return HStack(spacing: 8) {
-            AccountBadge(text: display.badge, color: display.color)
+            // A group's tabs already name each of its accounts.
+            if accounts.count == 1 { AccountBadge(text: display.badge, color: display.color) }
             VStack(alignment: .leading, spacing: 1) {
                 Text(account.title)
                     .font(.headline)
@@ -70,6 +71,8 @@ struct AccountPopoverView: View {
                     ClaudeCodeControlView(control: store.claudeCodePanel(for: account).control,
                                           use: { store.useInClaudeCode(account) },
                                           setUp: { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) })
+                    // As tall as a line with the Claude Code button, so the header keeps its height across tabs and states.
+                    ClaudeCodeControlView.heightTemplate
                 }
             }
             Spacer(minLength: 8)

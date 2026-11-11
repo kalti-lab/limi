@@ -76,6 +76,19 @@ struct ClaudeCodeControlView: View {
     }
 }
 
+extension ClaudeCodeControlView {
+    // Draws nothing and takes no width; a line that holds it is as tall as one with the button.
+    static var heightTemplate: some View {
+        Button("Use in Claude Code") {}
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .fixedSize()
+            .hidden()
+            .accessibilityHidden(true)
+            .frame(width: 0)
+    }
+}
+
 // The lines under the header: progress, the question, the last result, or why the button is blocked.
 struct ClaudeCodeLinesView: View {
     let lines: [ClaudeCodePanel.Line]
