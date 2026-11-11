@@ -13,8 +13,8 @@ repo_dir=$(cd "$script_dir/.." && pwd)
 app_name="${AGENTBAR_APP_NAME:-Limi}"
 # The version people see, and the build number Sparkle compares to offer an
 # update: raise app_build with every release. scripts/release.sh reads both here.
-app_version="1.1.0"
-app_build="4"
+app_version="1.1.1"
+app_build="5"
 bundle_id="kr.co.kalti.limi"
 bundle_name="$app_name.app"
 bundle_path="$repo_dir/$bundle_name"
