@@ -8,7 +8,7 @@
 
 <p align="center">
   See the 5-hour and weekly limits of several Claude Code and Codex accounts right in your menu bar.<br>
-  Switch accounts before you hit a limit. Your account details stay on your Mac.
+  Switch the account Claude Code uses in one click, without signing in again. Your account details stay on your Mac.
 </p>
 
 <p align="center">
