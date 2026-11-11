@@ -47,6 +47,9 @@ struct ClaudeCodeControlView: View {
     var use: () -> Void = {}
     var setUp: () -> Void = {}
 
+    // One text size for the buttons and the state, so they read as the same line.
+    static let textFont = Font.caption.weight(.semibold)
+
     var body: some View {
         switch control {
         case .hidden:
@@ -54,20 +57,20 @@ struct ClaudeCodeControlView: View {
         case .inClaudeCode:
             // A state, not a button: no background, a check beside the words.
             Label("In Claude Code", systemImage: "checkmark.circle.fill")
-                .font(.caption.weight(.semibold))
+                .font(Self.textFont)
                 .foregroundStyle(.green)
                 .fixedSize()
                 .help("Claude Code is signed in to this account.")
         case .use(let enabled, let help):
             // A real button, even inside the header's borderless ones; a blocked one is grey but still a button.
-            Button("Use in Claude Code", action: use)
+            Button(action: use) { Text("Use in Claude Code").font(Self.textFont) }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(!enabled)
                 .fixedSize()
                 .help(help)
         case .setUp(let help):
-            Button("Set Up in Settings…", action: setUp)
+            Button(action: setUp) { Text("Set Up in Settings…").font(Self.textFont) }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .fixedSize()
@@ -79,7 +82,7 @@ struct ClaudeCodeControlView: View {
 extension ClaudeCodeControlView {
     // Draws nothing and takes no width; a line that holds it is as tall as one with the button.
     static var heightTemplate: some View {
-        Button("Use in Claude Code") {}
+        Button {} label: { Text("Use in Claude Code").font(textFont) }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .fixedSize()

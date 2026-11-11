@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-// Clicking a menu bar item shows one account. A grouped item holds several,
-// switched with tabs above the header.
+// Clicking a menu bar item shows its group. Tabs above the header name the
+// group's accounts, even a single one, and switch between them.
 struct AccountPopoverView: View {
     static let width: CGFloat = 300
 
@@ -17,7 +17,7 @@ struct AccountPopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if accounts.count > 1 {
+            if !accounts.isEmpty {
                 Picker("Account", selection: Binding(get: { account?.id ?? accounts[0].id }, set: { selected = $0 })) {
                     ForEach(accounts) { Text(store.displayConfiguration.display($0).badge).tag($0.id) }
                 }
@@ -55,10 +55,8 @@ struct AccountPopoverView: View {
     }
 
     private func header(_ account: UsageAccount) -> some View {
-        let display = store.displayConfiguration.display(account)
-        return HStack(spacing: 8) {
-            // A group's tabs already name each of its accounts.
-            if accounts.count == 1 { AccountBadge(text: display.badge, color: display.color) }
+        // The tabs above name the account, so the header does not repeat its badge.
+        HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(account.title)
                     .font(.headline)
