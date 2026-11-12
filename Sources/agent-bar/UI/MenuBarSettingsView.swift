@@ -168,6 +168,9 @@ private struct MenuBarGroupEditor: View {
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .help("Group options")
             }
+            // What the group holds comes before how it shows, so its lines read as picked from these.
+            GroupMemberSection(group: group)
+            Divider()
             HStack(spacing: 16) {
                 Toggle("Show in menu bar", isOn: binding(\.enabled))
                 Toggle("Show name", isOn: Binding(get: { group.effectiveBadgeMode.includesCommon }, set: { on in
@@ -236,7 +239,7 @@ private struct MenuBarGroupEditor: View {
                     }.buttonStyle(.plain)
                         .accessibilityLabel("Add usage line \(slot + 1)")
                         .help("Add usage line \(slot + 1)")
-                        .disabled(store.orderedAccounts.isEmpty)
+                        .disabled(lineChoices.isEmpty)
                 }
                 }
                 .background(GeometryReader { proxy in
@@ -315,9 +318,15 @@ private struct MenuBarGroupEditor: View {
             (pair.0.id, titles.filter { $0 == pair.1 }.count > 1 ? String(localized: "\(pair.1) (line \(index + 1))") : pair.1)
         }
     }
+    /// The accounts a usage line may use: the group's own in their order, or every account while
+    /// the group follows its lines.
+    private var lineChoices: [UsageAccount] {
+        let accounts = store.orderedAccounts
+        return group.lineAccountChoices(accounts.map(\.id)).compactMap { id in accounts.first { $0.id == id } }
+    }
     private func lineEditor(at index: Int, preview: Bool = false) -> some View {
         let line = group.rows[index]
-        return MenuBarLineEditor(groupID: group.id, line: line, index: index,
+        return MenuBarLineEditor(groupID: group.id, line: line, index: index, choices: lineChoices,
             allowsDragging: group.style != .ring,
             dragChanged: { value in
                 if !preview { updateLineDrag(line.id, slot: line.slot ?? index, value: value) }
@@ -381,8 +390,8 @@ private struct MenuBarGroupEditor: View {
         settlingLineDrag = false
     }
     private func addLine(in slot: Int) {
-        let preferredID = group.rows.last?.accountID
-        guard let account = store.orderedAccounts.first(where: { $0.id == preferredID }) ?? store.orderedAccounts.first else { return }
+        guard let id = group.defaultLineAccount(store.orderedAccounts.map(\.id)),
+              let account = store.orderedAccounts.first(where: { $0.id == id }) else { return }
         store.updateDisplay { config in
             config.setVisible(account.id, true)
             let badge = config.display(account).badge
@@ -406,6 +415,8 @@ private struct MenuBarLineEditor: View {
     let groupID: UUID
     let line: MenuBarLine
     let index: Int
+    /// The accounts its menu offers: the group's own, or every account.
+    let choices: [UsageAccount]
     let allowsDragging: Bool
     let dragChanged: (DragGesture.Value) -> Void
     let dragEnded: (CGPoint) -> Void
@@ -434,6 +445,7 @@ private struct MenuBarLineEditor: View {
             HStack(spacing: 5) {
                 if let account { ProviderMark(provider: account.provider, size: 16) }
                 Picker("Account", selection: Binding(get: { line.accountID }, set: { id in
+                    guard choices.contains(where: { $0.id == id }) else { return }
                     store.updateDisplay { config in
                         config.setVisible(id, true)
                         config.editLayout(groupID) { group in
@@ -446,7 +458,7 @@ private struct MenuBarLineEditor: View {
                         }
                     }
                 })) {
-                    ForEach(store.orderedAccounts) { Text($0.provider.accountChoiceTitle(store.accountLabel(for: $0))).tag($0.id) }
+                    ForEach(choices) { Text($0.provider.accountChoiceTitle(store.accountLabel(for: $0))).tag($0.id) }
                 }.labelsHidden()
             }.frame(width: 150, alignment: .leading)
                 // Full names ("Fable weekly") when the row has room for all of
