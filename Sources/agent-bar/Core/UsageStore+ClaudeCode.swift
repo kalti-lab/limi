@@ -166,6 +166,24 @@ extension UsageStore {
         return ClaudeCodePanel(control: control, lines: lines)
     }
 
+    // Why Claude Code cannot be used with any account, such as a version too old: a group's account list says it once,
+    // under its header, instead of under every Claude account. Nil when nothing stands in the way of all of them.
+    var claudeCodeListNotice: String? {
+        guard claudeCode != nil, case .blocked(let reason) = claudeCodeAvailability else { return nil }
+        return reason
+    }
+
+    // What the account's row in a group's account list shows: its panel without what the list says once for all of its
+    // rows. Only the account being switched to shows the switch running, and `claudeCodeListNotice` is not repeated.
+    func claudeCodeListRow(for account: UsageAccount) -> ClaudeCodePanel {
+        var row = claudeCodePanel(for: account)
+        if let activity = claudeCodeActivity, activity.targetID != account.id {
+            row.lines.removeAll { if case .progress = $0 { true } else { false } }
+        }
+        if let notice = claudeCodeListNotice { row.lines.removeAll { $0 == .notice(notice) } }
+        return row
+    }
+
     // What the account's row in Settings › Accounts shows; nothing where the panel shows no control.
     func claudeCodeSetup(for account: UsageAccount) -> ClaudeCodeSetup {
         guard claudeCode != nil, account.provider == .claude, !account.deletionPending,
@@ -488,9 +506,12 @@ extension UsageStore {
         noteClaudeCodeShown()
     }
 
-    // The panel says which of its accounts it shows (a group's panel shows one at a time, chosen by tabs).
-    func claudeCodePanelShows(_ accountID: UUID, group: UUID) {
-        claudeCodePanelShown[group] = accountID
+    // The panel says which of its accounts it shows: one at a time, chosen by tabs.
+    func claudeCodePanelShows(_ accountID: UUID, group: UUID) { claudeCodePanelShows([accountID], group: group) }
+
+    // A group's account list shows all of its accounts at once.
+    func claudeCodePanelShows(_ accountIDs: [UUID], group: UUID) {
+        claudeCodePanelShown[group] = Set(accountIDs)
         if claudeCodeOpenPanel == group { noteClaudeCodeShown() }
     }
 
@@ -517,10 +538,10 @@ extension UsageStore {
         noteClaudeCodeShown()
     }
 
-    // What the open panel shows now: its account's result line or question.
+    // What the open panel shows now: its accounts' result lines or question.
     private func noteClaudeCodeShown() {
-        guard let group = claudeCodeOpenPanel, let id = claudeCodePanelShown[group] else { return }
-        if claudeCodeResults[id] != nil { claudeCodeResultsShown.insert(id) }
-        if claudeCodeConfirmation?.accountID == id { claudeCodeConfirmationShown = true }
+        guard let group = claudeCodeOpenPanel, let ids = claudeCodePanelShown[group] else { return }
+        claudeCodeResultsShown.formUnion(ids.filter { claudeCodeResults[$0] != nil })
+        if let confirmation = claudeCodeConfirmation, ids.contains(confirmation.accountID) { claudeCodeConfirmationShown = true }
     }
 }

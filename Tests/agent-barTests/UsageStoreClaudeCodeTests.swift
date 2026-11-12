@@ -157,6 +157,8 @@ struct UsageStoreClaudeCodeTests {
 
         store.useInClaudeCode(target)
         #expect(await waitUntil { store.claudeCodeActivity == nil })
+        // The reading after the switch finds prev's login put back, so prev can be used below.
+        await store.claudeCodeReading?.value
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[target.id]?.closes == 1)
 
@@ -340,15 +342,120 @@ struct UsageStoreClaudeCodeTests {
         #expect(UsageStore.claudeCodeFailureMessage(saysSo) == "Claude Code's login changed while switching. Try again.")
     }
 
+    // MARK: Groups and their account lists
+
+    @Test func scheduledRefreshAndMemberChangesDoNotReadClaudeCode() async throws {
+        let f = try SwitchFixture()
+        let prev = f.addAccount("prev"), other = f.addAccount("other")
+        f.signInDefault(prev)
+        // The menu bar shows prev alone, so other's usage is asked for only once it joins the group.
+        var registry = AccountRegistry(accounts: f.accounts)
+        registry.repairRepresentatives()
+        var display = DisplayConfiguration.initial(registry)
+        let group = MenuBarLayout(name: "Work", rows: [MenuBarLine(accountID: prev.id, metricID: "weekly", slot: 0, badgeText: "prev")])
+        display.layouts = [group]
+        try f.files.write(display, to: f.files.root.appendingPathComponent("display-v2.json"))
+        let asked = Recorder<UUID>()
+        let (store, done) = try makeStore(f, autoRefresh: true, loadAccount: { account, _ in
+            asked.add(account.id)
+            return .placeholder(for: account.provider)
+        })
+        defer { done() }
+        // Launch reads which account Claude Code uses.
+        #expect(await waitUntil { !store.claudeCodeStarting && store.claudeCodeReading == nil && !store.isRefreshing })
+        #expect(store.claudeCodeAccountID == prev.id)
+
+        // Claude Code is signed in to other in a terminal. Neither the timer nor a new member reads it.
+        f.signInDefault(other)
+        store.refreshOnSchedule()
+        #expect(store.claudeCodeReading == nil)
+        store.addGroupMember(other.id, to: group.id)
+        #expect(store.claudeCodeReading == nil)
+        #expect(await waitUntil { asked.values.contains(other.id) && !store.isRefreshing })
+        #expect(store.claudeCodeAccountID == prev.id)
+        // A panel opening does.
+        store.claudeCodePanelWillOpen(group: group.id)
+        #expect(await waitUntil { store.claudeCodeAccountID == other.id })
+    }
+
+    @Test func listRowsKeepProgressOnTheTargetAndTheAppWideNoticeOnce() async throws {
+        let f = try SwitchFixture()
+        let prev = f.addAccount("prev"), target = f.addAccount("target"), other = f.addAccount("other")
+        // Without its organization the account cannot be told apart from another login.
+        let legacy = UsageAccount(id: UUID(), provider: .claude, name: "legacy",
+                                  identity: AccountIdentity(email: "legacy@example.test"), credentialID: UUID())
+        f.signInDefault(prev)
+        try f.saveLogin(for: target)
+        f.world.version = "2.1.100 (Claude Code)\n"
+        let (store, done) = try makeStore(f, extra: [legacy])
+        defer { done() }
+        await store.runClaudeCodeStartup()
+
+        // Too old for every account: the list says why once, and its rows do not.
+        let reason = "Claude Code 2.1.100 is too old. Update to 2.1.309 or newer."
+        #expect(store.claudeCodeListNotice == reason)
+        #expect(store.claudeCodeListRow(for: target) == ClaudeCodePanel(control: .use(enabled: false, help: reason), lines: []))
+        #expect(store.claudeCodePanel(for: target).lines == [.notice(reason)])
+
+        // Updated, nothing stands in the way of all of them, and an account's own reason stays on its row.
+        f.world.version = "2.1.312 (Claude Code)\n"
+        store.refreshClaudeCodeState()
+        await store.claudeCodeReading?.value
+        #expect(store.claudeCodeListNotice == nil)
+        #expect(store.claudeCodeListRow(for: legacy).lines == [.notice("Reconnect this account before using it in Claude Code.")])
+
+        // While Claude Code switches, only the account it switches to shows it; the other rows' buttons wait.
+        let hold = f.world.hold(login: "default")
+        store.useInClaudeCode(target)
+        #expect(await waitUntil { f.world.calls.contains { $0.arguments == ["auth", "login", "--claudeai"] } })
+        let step = try #require(store.claudeCodeActivity?.message)
+        #expect(store.claudeCodeListRow(for: target).lines == [.progress(step)])
+        #expect(store.claudeCodeListRow(for: other)
+                == ClaudeCodePanel(control: .use(enabled: false, help: "Claude Code is being switched. Wait for it to finish."), lines: []))
+        #expect(store.claudeCodePanel(for: other).lines == [.progress("Switching Claude Code to target…")])
+        hold.release.signal()
+        #expect(await waitUntil { store.claudeCodeActivity == nil })
+    }
+
+    @Test func aListShowsEveryAccountItHolds() async throws {
+        let f = try SwitchFixture()
+        let a = f.addAccount("a"), b = f.addAccount("b"), c = f.addAccount("c"), away = f.addAccount("away")
+        f.signInDefault(email: "stranger@example.test")
+        try f.saveLogin(for: b)
+        let (store, done) = try makeStore(f)
+        defer { done() }
+        await store.runClaudeCodeStartup()
+        // A switch to b asks about the login Limi does not have; a, c and away have results nobody has seen.
+        store.useInClaudeCode(b)
+        #expect(await waitUntil { store.claudeCodeActivity == nil && store.claudeCodeConfirmation?.accountID == b.id })
+        for id in [a.id, c.id, away.id] { store.claudeCodeResults[id] = ClaudeCodeResult(succeeded: true, message: "Done.") }
+        let group = UUID()
+
+        // The list shows a, b and c at once: closing it counts for both results, and the question goes with it.
+        store.claudeCodePanelWillOpen(group: group)
+        store.claudeCodePanelShows([a.id, b.id, c.id], group: group)
+        store.claudeCodePanelDidClose(group: group)
+        #expect(store.claudeCodeResults[a.id]?.closes == 1 && store.claudeCodeResults[c.id]?.closes == 1)
+        #expect(store.claudeCodeResults[away.id]?.closes == 0)
+        #expect(store.claudeCodeConfirmation == nil)
+        // Opened again, the list shows them again, and the second close clears them.
+        store.claudeCodePanelWillOpen(group: group)
+        store.claudeCodePanelDidClose(group: group)
+        #expect(store.claudeCodeResults[a.id] == nil && store.claudeCodeResults[c.id] == nil)
+        #expect(store.claudeCodeResults[away.id]?.closes == 0)
+    }
+
     // MARK: Helpers
 
-    private func makeStore(_ f: SwitchFixture, extra: [UsageAccount] = [], claudeCode: Bool = true) throws -> (UsageStore, () -> Void) {
+    private func makeStore(_ f: SwitchFixture, extra: [UsageAccount] = [], claudeCode: Bool = true, autoRefresh: Bool = false,
+                           loadAccount: @escaping @Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot
+                               = { account, _ in .placeholder(for: account.provider) }) throws -> (UsageStore, () -> Void) {
         var registry = AccountRegistry(accounts: f.accounts + extra)
         registry.repairRepresentatives()
         try f.files.write(registry, to: f.files.registryURL)
         let suite = "claude-code-store-\(UUID())", defaults = UserDefaults(suiteName: suite)!
-        let store = UsageStore(settings: AppSettings(defaults: defaults), files: f.files, autoRefresh: false,
-                               loadAccount: { account, _ in .placeholder(for: account.provider) },
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: f.files, autoRefresh: autoRefresh,
+                               loadAccount: loadAccount,
                                claudeCode: claudeCode ? f.switcher : nil,
                                claudeCodeBrowser: BrowserLoginLauncher(openURL: { _ in true }))
         return (store, { store.shutdown(); defaults.removePersistentDomain(forName: suite) })

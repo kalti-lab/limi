@@ -53,9 +53,9 @@ final class UsageStore: ObservableObject {
     var claudeCodeReadAgain = false
     // Bumped when a switch or a sign-in starts or ends, so a reading that began before it is dropped.
     var claudeCodeEpoch = 0
-    // Which account each menu bar group's panel shows, the group whose panel is open, and the result lines and question
-    // that panel has shown since it opened.
-    var claudeCodePanelShown: [UUID: UUID] = [:]
+    // Which accounts each menu bar group's panel shows (the one its tabs chose, or every account of its list), the group
+    // whose panel is open, and the result lines and question that panel has shown since it opened.
+    var claudeCodePanelShown: [UUID: Set<UUID>] = [:]
     var claudeCodeOpenPanel: UUID?
     var claudeCodeResultsShown: Set<UUID> = []
     var claudeCodeConfirmationShown = false
@@ -72,22 +72,32 @@ final class UsageStore: ObservableObject {
     private var loginAuthorizationURL: URL?
     private var controls: [UUID: OperationControl] = [:]
     private var nextEligibleRefresh: [UUID: Date] = [:]
+    // When each service last answered a usage request, for `requestSpacing`.
+    private var lastAnswer: [ProviderKind: ContinuousClock.Instant] = [:]
     private var cleaning: Set<UUID> = []
     private var deletingIDs: Set<UUID> = []
     private var pendingRefreshIDs: Set<UUID> = []
     private let automaticRefresh: Bool
     private let loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)?
+    // How long to rest between two usage requests to the same service. Empty: no rest.
+    let requestSpacing: [ProviderKind: Duration]
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
+    // The app's rest, so a group holding many accounts of one service does not ask about them all at once. Antigravity
+    // has only one account.
+    static let appRequestSpacing: [ProviderKind: Duration] = [.claude: .seconds(1), .codex: .milliseconds(500)]
+
     // `claudeCode` turns on "Use in Claude Code"; only the app's assembly passes the real one. `claudeCodeBrowser`
-    // opens the sign-in page for it.
+    // opens the sign-in page for it. Only the app passes `appRequestSpacing`, so tests do not wait.
     init(settings: AppSettings, files: AccountFiles = AccountFiles(), autoRefresh: Bool = true,
          loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)? = nil,
+         requestSpacing: [ProviderKind: Duration] = [:],
          claudeCode: ClaudeCodeSwitcher? = nil, claudeCodeBrowser: BrowserLoginLauncher? = nil) {
         self.settings = settings
         self.automaticRefresh = autoRefresh
         self.loadAccount = loadAccount
+        self.requestSpacing = requestSpacing
         self.files = files
         self.claudeCode = claudeCode
         self.claudeCodeBrowser = claudeCodeBrowser ?? BrowserLoginLauncher()
@@ -317,6 +327,15 @@ final class UsageStore: ObservableObject {
 
     func refreshNow() { requestRefresh(refreshAccountIDs); refreshClaudeCodeState() }
 
+    // What the timer does: usage only, and nothing while the last round is still running. Which account Claude Code uses
+    // is read when a person is there to see it (a panel, Settings, a refresh they asked for): reading it runs
+    // /usr/bin/security, which has no way to stay quiet if the Keychain wants to ask, and nothing on a timer may bring up
+    // a window.
+    func refreshOnSchedule() {
+        guard !isRefreshing else { return }
+        requestRefresh(refreshAccountIDs)
+    }
+
     func refresh() async {
         refreshNow()
         await refreshTask?.value
@@ -340,12 +359,18 @@ final class UsageStore: ObservableObject {
             isRefreshing = false; lastRefresh = .now; refreshTask = nil
         }
     }
+    // A service is asked about one account at a time, and in the app only after resting `requestSpacing` since its last
+    // answer. The accounts the menu bar draws go first, so its numbers are the first to be new.
     private func refreshService(_ provider: ProviderKind, requested: Set<UUID>) async {
+        let drawn = Set(displayConfiguration.visibleAccountIDs)
         let selected = accounts(for: provider).filter { !$0.deletionPending && requested.contains($0.id) }
-        for account in selected {
-            guard !Task.isCancelled, refreshAccountIDs.contains(account.id), Self.acceptsResult(request: account, current: accounts.first(where: { $0.id == account.id })) else { continue }
-            guard let directory = credentialDirectory(for: account) else { continue }
-            if let next = nextEligibleRefresh[account.id], Date() < next { continue }
+        for account in selected.filter({ drawn.contains($0.id) }) + selected.filter({ !drawn.contains($0.id) }) {
+            guard let directory = refreshDirectory(for: account) else { continue }
+            if let spacing = requestSpacing[provider], let last = lastAnswer[provider], ContinuousClock.now < last + spacing {
+                try? await Task.sleep(until: last + spacing, clock: .continuous)
+                // The account may have been hidden, deleted or reconnected meanwhile.
+                guard refreshDirectory(for: account) != nil else { continue }
+            }
             let control = OperationControl(); controls[account.id] = control
             refreshingAccounts.insert(account.id)
             let result: ProviderSnapshot
@@ -359,6 +384,7 @@ final class UsageStore: ObservableObject {
                 result = await ClaudeUsageProvider(directory: directory, cacheURL: files.cache(account),
                     expectedIdentity: account.identity, control: control).load()
             }
+            lastAnswer[provider] = .now
             controls[account.id] = nil; refreshingAccounts.remove(account.id)
             // A hidden response must not update usage, but its provider retry
             // deadline still applies to the same credential generation.
@@ -378,16 +404,19 @@ final class UsageStore: ObservableObject {
             updateRepresentatives()
         }
     }
+    // The account's sign-in folder when its usage may be asked for now: it is still to be refreshed, has not been
+    // reconnected or deleted since the round began, and is past the wait its last answer set.
+    private func refreshDirectory(for account: UsageAccount) -> URL? {
+        guard !Task.isCancelled, refreshAccountIDs.contains(account.id),
+              Self.acceptsResult(request: account, current: accounts.first(where: { $0.id == account.id })),
+              let directory = credentialDirectory(for: account) else { return nil }
+        if let next = nextEligibleRefresh[account.id], Date() < next { return nil }
+        return directory
+    }
     private func configureTimer(interval: Double? = nil) {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: max(60, interval ?? settings.refreshIntervalSeconds), repeats: true) { [weak self] _ in
-            // Usage only. Which account Claude Code uses is read when a person is there to see it (a panel, Settings, a
-            // refresh they asked for): reading it runs /usr/bin/security, which has no way to stay quiet if the Keychain
-            // wants to ask, and nothing on a timer may bring up a window.
-            Task { @MainActor [weak self] in
-                guard let self, !self.isRefreshing else { return }
-                self.requestRefresh(self.refreshAccountIDs)
-            }
+            Task { @MainActor [weak self] in self?.refreshOnSchedule() }
         }
     }
 

@@ -18,7 +18,7 @@ final class AppContainer {
         self.availableProviders = availableProviders
         // The one place that can change Claude Code's own login. Tests build a store without it, or with a stand-in.
         let isAppBundle = Bundle.main.bundleURL.pathExtension == "app"
-        self.store = UsageStore(settings: settings, files: files,
+        self.store = UsageStore(settings: settings, files: files, requestSpacing: UsageStore.appRequestSpacing,
                                 claudeCode: Self.claudeCodeAllowed(environment, isAppBundle: isAppBundle) ? .system(files: files) : nil)
     }
 
