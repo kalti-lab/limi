@@ -181,9 +181,10 @@ struct DisplayConfiguration: Codable, Equatable {
         return result
     }
     static func groupKey(_ group: Int) -> UUID { UUID(uuidString: String(format: "A6E17BA0-0000-4000-8000-%012X", group))! }
+    // Every account a shown group holds, or the accounts its lines draw when it holds none of its own.
     var refreshAccountIDs: Set<UUID> {
         guard let layouts else { return Set(visibleAccountIDs) }
-        return Set(layouts.filter { $0.enabled && $0.showsAnything }.flatMap(\.displayedRows).map(\.accountID).filter(isVisible))
+        return Set(layouts.filter { $0.enabled && $0.showsAnything }.flatMap(\.refreshedAccountIDs).filter(isVisible))
     }
     var showsAnything: Bool { showBadge || showBar || showPercent }
 
@@ -212,13 +213,18 @@ struct DisplayConfiguration: Codable, Equatable {
     mutating func sync(_ live: [UsageAccount]) {
         let ids = Set(live.map(\.id))
         if layouts != nil {
-            for i in layouts!.indices { layouts![i].rows.removeAll { !ids.contains($0.accountID) } }
+            for i in layouts!.indices {
+                layouts![i].rows.removeAll { !ids.contains($0.accountID) }
+                // A deleted account leaves the groups holding it; a group left with none uses its lines' accounts again.
+                if let members = layouts![i].memberIDs?.filter(ids.contains) { layouts![i].memberIDs = members.isEmpty ? nil : members }
+            }
             normalizeTextLineSlots()
             for account in live where accounts[account.id.uuidString] == nil {
                 let line = MenuBarLine(accountID: account.id, metricID: "weekly")
                 // Fill a group left empty (e.g. by deleting its account) before adding
                 // another one, so a re-added account doesn't sit beside a bare "+" item.
-                if let empty = layouts!.firstIndex(where: { $0.enabled && $0.rows.isEmpty }) {
+                // A group holding accounts of its own is not empty: a line there would need its account as a member.
+                if let empty = layouts!.firstIndex(where: { $0.enabled && $0.rows.isEmpty && $0.memberIDs == nil }) {
                     layouts![empty].rows = [line]
                 } else {
                     layouts!.append(MenuBarLayout(name: account.title, rows: [line]))
@@ -258,7 +264,9 @@ struct DisplayConfiguration: Codable, Equatable {
         layouts![index] = layout
     }
     var valid: Bool {
-        (layouts.map { groups in Set(groups.map(\.id)).count == groups.count && groups.allSatisfy { $0.valid && $0.rows.allSatisfy { accounts[$0.accountID.uuidString] != nil } } } ?? true)
+        (layouts.map { groups in Set(groups.map(\.id)).count == groups.count && groups.allSatisfy { group in
+            group.valid && (group.rows.map(\.accountID) + (group.memberIDs ?? [])).allSatisfy { accounts[$0.uuidString] != nil }
+        } } ?? true)
             && version == 2 && Set(order).count == order.count && order.allSatisfy { accounts[$0.uuidString] != nil }
             && accounts.values.allSatisfy { !$0.badge.isEmpty && $0.badge.count <= Self.badgeLimit }
             && (1...6).contains(rowsPerColumn) && accounts.values.allSatisfy { (0...Self.groupLimit).contains($0.group) }

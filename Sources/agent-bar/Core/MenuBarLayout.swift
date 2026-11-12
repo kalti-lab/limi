@@ -48,6 +48,8 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
     var percentageLineID: String? = nil
     var rowsPerColumn = 3
     var rows: [MenuBarLine] = []
+    /// The accounts this group holds, in the order its panel lists them. Nil: the accounts its lines use.
+    var memberIDs: [UUID]? = nil
     // The native menu bar slot is independent of which group is displayed in it.
     // Reordering groups reuses these slots, preserving other apps' positions.
     var statusItemPositionID: UUID? = nil
@@ -74,6 +76,8 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
                 return style == .text ? slot >= 0 : (0..<Self.maximumLines).contains(slot)
             }
             && Set(rows.enumerated().map { $0.element.slot ?? $0.offset }).count == rows.count
+            // A group's own accounts: none twice, never empty, and every line's account among them.
+            && (memberIDs.map { ids in !ids.isEmpty && Set(ids).count == ids.count && rows.allSatisfy { ids.contains($0.accountID) } } ?? true)
     }
     mutating func compactLineSlots() {
         rows = rows.enumerated().sorted { left, right in

@@ -135,6 +135,7 @@ final class UsageStore: ObservableObject {
                 loaded.normalizeTextLineSlots()
                 loaded.mergeGroupLabels()
                 if loaded.layouts != nil { loaded.freezeBadgeLabels() }
+                loaded.normalizeMembers()
                 if loaded != original {
                     try FileManager.default.copyItem(at: displayURL, to: files.root.appendingPathComponent("display-before-three-lines-\(UUID()).json"))
                 }
@@ -184,6 +185,8 @@ final class UsageStore: ObservableObject {
         guard displayWritable else { return }
         var next = displayConfiguration; change(&next)
         if next.layouts != nil { next.freezeBadgeLabels() }
+        // An edit that adds a line for an account a group does not hold yet makes it a member, rather than being dropped.
+        next.normalizeMembers()
         guard next.valid else { return }
         do {
             if displayConfiguration.layouts == nil && next.layouts != nil && FileManager.default.fileExists(atPath: displayURL.path) {
