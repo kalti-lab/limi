@@ -132,6 +132,66 @@ struct StatusBarClickTests {
         #expect(!restored.moveFromMenuBar(UUID(), to: first))
     }
 
+    @Test func aGroupWithAnAccountOutsideItsLinesOpensAList() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("group-list-routing-\(UUID())")
+        let suite = "group-list-routing-\(UUID())", defaults = UserDefaults(suiteName: suite)!
+        defer { try? FileManager.default.removeItem(at: root); defaults.removePersistentDomain(forName: suite) }
+        let files = AccountFiles(root: root)
+        let a = UsageAccount(id: UUID(), provider: .claude, name: "A")
+        let b = UsageAccount(id: UUID(), provider: .codex, name: "B")
+        let c = UsageAccount(id: UUID(), provider: .claude, name: "C")
+        var registry = AccountRegistry(accounts: [a, b, c]); registry.repairRepresentatives()
+        try files.write(registry, to: files.registryURL)
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: files, autoRefresh: false)
+        defer { store.shutdown() }
+        // The lines draw A; the group also holds C and B, in the order its chips were put.
+        let list = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: a.id, metricID: "5h")], memberIDs: [c.id, a.id, b.id])
+        // Everything it holds is on a line: tabs, in the members' order rather than the lines'.
+        let pair = MenuBarLayout(name: "Pair", rows: [MenuBarLine(accountID: a.id, metricID: "weekly"),
+                                                      MenuBarLine(accountID: b.id, metricID: "weekly")], memberIDs: [b.id, a.id])
+        // Accounts and no lines.
+        let bench = MenuBarLayout(name: "Bench", memberIDs: [b.id, c.id])
+        store.updateDisplay { $0.layouts = [list, pair, bench] }
+        let coordinator = StatusBarCoordinator(store: store, providers: [.claude, .codex])
+        defer { coordinator.removeAll() }
+        #expect(coordinator.physicalStatusItemCount == 3)
+        #expect(coordinator.popoverMode(for: list.id) == .list)
+        #expect(coordinator.popoverAccountIDs(for: list.id) == [c.id, a.id, b.id])
+        #expect(coordinator.popoverMode(for: pair.id) == .tabs)
+        #expect(coordinator.popoverAccountIDs(for: pair.id) == [b.id, a.id])
+        // It has no entries, but a click opens its list rather than Settings, which only an empty panel opens.
+        #expect(coordinator.popoverMode(for: bench.id) == .list)
+        #expect(coordinator.popoverAccountIDs(for: bench.id) == [b.id, c.id])
+
+        // Reordering the chips reorders the list.
+        store.moveGroupMember(b.id, to: c.id, in: list.id)
+        try await waitFor { coordinator.popoverAccountIDs(for: list.id) == [b.id, c.id, a.id] }
+        #expect(coordinator.popoverMode(for: list.id) == .list)
+        // Taking out the accounts beyond its lines turns it back into tabs.
+        store.removeGroupMember(b.id, from: list.id)
+        try await waitFor { coordinator.popoverAccountIDs(for: list.id) == [c.id, a.id] }
+        #expect(coordinator.popoverMode(for: list.id) == .list)
+        store.removeGroupMember(c.id, from: list.id)
+        try await waitFor { coordinator.popoverMode(for: list.id) == .tabs }
+        #expect(coordinator.popoverAccountIDs(for: list.id) == [a.id])
+        // A hidden account leaves the list.
+        store.updateDisplay { $0.setVisible(c.id, false) }
+        try await waitFor { coordinator.popoverAccountIDs(for: bench.id) == [b.id] }
+        #expect(coordinator.popoverMode(for: bench.id) == .list)
+
+        // Drawing the item again for a menu bar that turned light or dark keeps the list.
+        let controller = StatusBarController(key: bench.id, store: store)
+        defer { controller.remove() }
+        let group = try #require(store.displayConfiguration.effectiveLayouts.first { $0.id == bench.id })
+        controller.apply(store.entries(for: group), config: group.renderingConfiguration(store.displayConfiguration), explicitRows: true,
+                         name: group.name, panel: store.groupPanel(for: group))
+        controller.reapply()
+        #expect(controller.popoverMode == .list)
+        #expect(controller.popoverAccountIDs == [b.id])
+        // Its item names the group's accounts instead of offering to add a line, since a click opens the list.
+        #expect(controller.accessibilityLabel == "Bench · 1 account")
+    }
+
     @Test func onlyTaggedGroupPayloadsCanReorderBadges() {
         let id = UUID()
         #expect(BadgeDragPayload.groupID(BadgeDragPayload.string(id)) == id)

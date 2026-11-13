@@ -114,12 +114,7 @@ struct AccountManagementView: View {
                     Button { editing = account } label: {
                         Text(store.accountLabel(for: account)).font(.headline).lineLimit(1)
                     }.buttonStyle(.plain).help("Rename account")
-                    if let plan = snapshot.planName, !plan.isEmpty {
-                        Text(plan).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Color.primary.opacity(0.07), in: Capsule())
-                            .accessibilityLabel("\(plan) plan")
-                    }
+                    if let plan = snapshot.planName, !plan.isEmpty { PlanTag(plan: plan) }
                     if account.provider == .antigravity {
                         Text("Experimental").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
                             .padding(.horizontal, 6).padding(.vertical, 1)
@@ -230,26 +225,6 @@ struct AccountManagementView: View {
         let order = store.orderedAccounts.map(\.id)
         guard let index = order.firstIndex(of: id), order.indices.contains(index + offset) else { return }
         store.moveAccount(id, to: order[index + offset])
-    }
-}
-
-/// A colored dot and a short line: updated, waiting, or what needs attention.
-private struct AccountStatusLine: View {
-    let status: AccountCardStatus
-    var body: some View {
-        let line = HStack(spacing: 5) {
-            Circle().fill(dotColor).frame(width: 6, height: 6).accessibilityHidden(true)
-            Text(status.text).font(.caption).lineLimit(1)
-                .foregroundStyle(status.tone == .attention ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-        }
-        if let detail = status.detail { line.help(detail) } else { line }
-    }
-    private var dotColor: Color {
-        switch status.tone {
-        case .ok: return .green
-        case .attention: return .orange
-        case .quiet: return Color.secondary.opacity(0.5)
-        }
     }
 }
 

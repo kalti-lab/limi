@@ -21,6 +21,7 @@ final class StatusBarCoordinator {
     func statusItemLength(for id: UUID) -> CGFloat? { controllers[id]?.width }
     func popoverAccountIDs(for id: UUID) -> [UUID]? { controllers[id]?.popoverAccountIDs }
     func popoverGroupID(for id: UUID) -> UUID? { controllers[id]?.popoverGroupID }
+    func popoverMode(for id: UUID) -> GroupPanelMode? { controllers[id]?.popoverMode }
     func positionID(for id: UUID) -> UUID? { controllers[id]?.positionID }
     var groupOrderOnScreen: [UUID] { controllersFromLeftToRight().map(\.popoverGroupID) }
     func removeAll() { controllers.values.forEach { $0.remove() }; controllers.removeAll() }
@@ -79,7 +80,8 @@ final class StatusBarCoordinator {
                 moveGroup: { [weak self] source, target in self?.moveFromMenuBar(source, to: target) ?? false })
         }
         for group in groups {
-            controllers[group.id]?.apply(store.entries(for: group), config: group.renderingConfiguration(config), explicitRows: true, name: group.name)
+            controllers[group.id]?.apply(store.entries(for: group), config: group.renderingConfiguration(config), explicitRows: true, name: group.name,
+                                         panel: store.groupPanel(for: group))
         }
         if !positions.isEmpty {
             store.updateDisplay { config in
@@ -106,12 +108,13 @@ final class StatusBarController {
     private let panel: MenuBarPanel<AccountPopoverRoot>
     private var entries: [MenuBarEntry] = []
     private var dragSurface: BadgeDragSurface?
-    private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String)?
+    private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String, panel: GroupPanelContent?)?
     private var appearanceObservation: NSKeyValueObservation?
     var width: CGFloat { statusItem.length }
     var accessibilityLabel: String? { statusItem.button?.accessibilityLabel() }
     var popoverAccountIDs: [UUID] { panel.rootView.accountIDs }
     var popoverGroupID: UUID { panel.rootView.groupID }
+    var popoverMode: GroupPanelMode { panel.rootView.mode }
     var screenWidth: CGFloat? { statusItem.button?.window?.screen?.frame.width }
     var screenFrame: NSRect? { statusItem.button?.window?.frame }
     init(key: UUID, store: UsageStore, positionID: UUID? = nil, moveGroup: ((UUID, UUID) -> Bool)? = nil) {
@@ -151,18 +154,25 @@ final class StatusBarController {
         panel.close()
         groupID = id
         dragSurface?.groupID = id
-        panel.rootView = AccountPopoverRoot(accountIDs: [], groupID: id, store: store)
+        panel.rootView = AccountPopoverRoot(mode: .tabs, accountIDs: [], groupID: id, store: store)
     }
-    func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = String(localized: "Group")) {
+    // `content` is what the group's panel shows (`UsageStore.groupPanel(for:)`). Without it the panel shows the accounts
+    // the lines draw, as tabs.
+    func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = String(localized: "Group"),
+               panel content: GroupPanelContent? = nil) {
         self.entries = entries
-        lastApplied = (config, explicitRows, name)
+        lastApplied = (config, explicitRows, name, content)
         let image = DisplayStatusRenderer.render(entries: entries, config: config,
             height: max(18, NSStatusBar.system.thickness - 2), scale: statusItem.button?.window?.backingScaleFactor ?? 2, explicitRows: explicitRows,
             appearance: statusItem.button?.effectiveAppearance)
         statusItem.length = image.size.width
         statusItem.button?.image = image
         dragSurface?.badgeImage = image
-        let description = entries.isEmpty ? String(localized: "\(name) · Click to add a usage line") : entries.map {
+        var seen = Set<UUID>()
+        let shown = content ?? GroupPanelContent(mode: .tabs, accountIDs: entries.map(\.account.id).filter { seen.insert($0).inserted })
+        // A group with accounts but no lines opens its list, so it is not offered as a place to add a line.
+        let empty = shown.accountIDs.isEmpty ? String(localized: "\(name) · Click to add a usage line") : name + " · " + GroupListWords.accounts(shown.accountIDs.count)
+        let description = entries.isEmpty ? empty : entries.map {
             "\($0.account.title) · \($0.metric.localizedTitle): \($0.percentage)" + ($0.stale ? " " + String(localized: "(cached)") : "")
         }.joined(separator: "\n")
         let common = config.commonBadgeText.flatMap { $0.isEmpty ? nil : $0 }
@@ -170,19 +180,22 @@ final class StatusBarController {
         statusItem.button?.toolTip = accessibleDescription
         dragSurface?.toolTip = accessibleDescription
         statusItem.button?.setAccessibilityLabel(accessibleDescription)
-        var seen = Set<UUID>()
-        let ids = entries.map(\.account.id).filter { seen.insert($0).inserted }
-        if panel.rootView.accountIDs != ids { panel.rootView = AccountPopoverRoot(accountIDs: ids, groupID: groupID, store: store) }
+        if panel.rootView.accountIDs != shown.accountIDs || panel.rootView.mode != shown.mode {
+            panel.rootView = AccountPopoverRoot(mode: shown.mode, accountIDs: shown.accountIDs, groupID: groupID, store: store)
+        }
     }
-    private func reapply() {
+    // Draws the item again for the menu bar's new appearance, with the panel it had.
+    func reapply() {
         guard let lastApplied else { return }
-        apply(entries, config: lastApplied.config, explicitRows: lastApplied.explicitRows, name: lastApplied.name)
+        apply(entries, config: lastApplied.config, explicitRows: lastApplied.explicitRows, name: lastApplied.name, panel: lastApplied.panel)
     }
     func remove() { panel.close(); NSStatusBar.system.removeStatusItem(statusItem) }
     @objc private func toggle(_ sender: AnyObject?) {
         guard let button = statusItem.button else { return }
         store.selectMenuBarGroup(groupID)
-        if entries.isEmpty { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID); return }
+        // Nothing to show: a group without lines or accounts. One whose accounts sit outside its lines has no entries
+        // but opens its list.
+        if panel.rootView.accountIDs.isEmpty { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID); return }
         // The panel sizes itself to its content.
         if panel.isShown { panel.close() } else {
             // The login Claude Code uses may have been changed in a terminal since it was last read.
@@ -193,10 +206,17 @@ final class StatusBarController {
 }
 
 struct AccountPopoverRoot: View {
+    var mode: GroupPanelMode = .tabs
     let accountIDs: [UUID]
     let groupID: UUID
     let store: UsageStore
-    var body: some View { AccountPopoverView(accountIDs: accountIDs, groupID: groupID).environmentObject(store) }
+    var body: some View {
+        Group {
+            if mode == .list { GroupAccountListView(accountIDs: accountIDs, groupID: groupID) }
+            else { AccountPopoverView(accountIDs: accountIDs, groupID: groupID) }
+        }
+        .environmentObject(store)
+    }
 }
 
 // Draws accounts inside a dark capsule. The style decides how each gauge is
@@ -209,6 +229,7 @@ enum DisplayStatusRenderer {
     static let inset: CGFloat = 4
     static let columnGap: CGFloat = 7
     static let alertThreshold = 0.9
+    static let alertColor = NSColor(red: 0.98, green: 0.45, blue: 0.42, alpha: 1)
 
     static let maxBars = 3
     // A drawn line: one account and one of its limits. Multi Bar gives an
@@ -361,7 +382,7 @@ enum DisplayStatusRenderer {
         let value = row.metric.window?.utilization ?? 0
         // Pastel bar colors are made for dark menu bars; light ones need the deeper tone.
         let accent = isDarkDrawing ? row.entry.display.color.barColor : row.entry.display.color.nsColor
-        let base = value >= alertThreshold ? NSColor(red: 0.98, green: 0.45, blue: 0.42, alpha: 1) : accent
+        let base = value >= alertThreshold ? alertColor : accent
         return base.withAlphaComponent(row.entry.stale ? 0.55 : 1)
     }
     static func showsPercentage(for entry: MenuBarEntry, config: DisplayConfiguration) -> Bool {
