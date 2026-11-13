@@ -51,7 +51,7 @@ struct GroupAccountRow: View {
         .accessibilityLabel(Text(verbatim: badge + " · " + address))
         // The button that waits for the pointer, as an action VoiceOver reaches without one.
         .accessibilityActions {
-            if case .use(true, _) = claudeCode.control { Button(GroupListWords.use, action: actions.use) }
+            if case .use(true, _) = claudeCode.control { Button(ClaudeCodeWords.use, action: actions.use) }
             if case .setUp = claudeCode.control { Button(String(localized: "Set Up in Settings…"), action: actions.setUp) }
         }
     }
@@ -82,15 +82,15 @@ struct GroupAccountRow: View {
             EmptyView()
         case .inClaudeCode:
             // A state, always shown.
-            Text(GroupListWords.inUse)
+            Text(ClaudeCodeWords.inUse)
                 .font(ClaudeCodeControlView.textFont)
                 .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 7).padding(.vertical, 2)
                 .background(Color.accentColor.opacity(0.12), in: Capsule())
                 .fixedSize()
-                .help("Claude Code is signed in to this account.")
+                .help(ClaudeCodeWords.inUseHelp)
         case .use(let enabled, let help):
-            pointerButton(GroupListWords.use, enabled: enabled, help: enabled ? GroupListWords.useHelp : help, action: actions.use)
+            pointerButton(ClaudeCodeWords.use, enabled: enabled, help: help, action: actions.use)
         case .setUp(let help):
             pointerButton(String(localized: "Set Up in Settings…"), enabled: true, help: help, action: actions.setUp)
         }

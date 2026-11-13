@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import agent_bar
 
-// The store's side of "Use in Claude Code", run against the fake Claude Code and Keychain of ClaudeCodeTestSupport.
-// No real Claude Code, Keychain item, login or browser is involved. Accounts that get deleted have no usage sign-in
-// folder, so deleting them does not reach the real Keychain either.
+// The store's side of switching Claude Code's account, run against the fake Claude Code and Keychain of
+// ClaudeCodeTestSupport. No real Claude Code, Keychain item, login or browser is involved. Accounts that get deleted
+// have no usage sign-in folder, so deleting them does not reach the real Keychain either.
 @MainActor
 @Suite(.serialized)
 struct UsageStoreClaudeCodeTests {
@@ -36,7 +36,7 @@ struct UsageStoreClaudeCodeTests {
         #expect(store.claudeCodeReady == [target.id])
         #expect(store.claudeCodePanel(for: prev).control == .inClaudeCode)
         #expect(store.claudeCodePanel(for: target).control
-                == .use(enabled: true, help: "Switches Claude Code to this account. Open sessions switch within 30 s."))
+                == .use(enabled: true, help: "Use this account in Claude Code. Open sessions switch within 30 s."))
         // An account with nothing to hand over is sent to Settings, where it signs in once.
         guard case .setUp = store.claudeCodePanel(for: fresh).control else { Issue.record("fresh should be sent to Settings"); return }
         #expect(store.claudeCodeSetup(for: prev).status == .inClaudeCode)
@@ -86,7 +86,7 @@ struct UsageStoreClaudeCodeTests {
         // The login that was in Claude Code went back to its account, so switching back needs no browser.
         #expect(store.claudeCodeReady == [prev.id])
         #expect(store.claudeCodePanel(for: prev).control
-                == .use(enabled: true, help: "Switches Claude Code to this account. Open sessions switch within 30 s."))
+                == .use(enabled: true, help: "Use this account in Claude Code. Open sessions switch within 30 s."))
         #expect(!store.isClaudeCodeLocked(target) && !store.isClaudeCodeLocked(prev))
     }
 

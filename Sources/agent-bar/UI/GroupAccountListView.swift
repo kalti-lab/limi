@@ -1,12 +1,8 @@
 import AppKit
 import SwiftUI
 
-// What the account list says that the rest of the app does not, together while the words are still being settled.
+// What the account list says that the rest of the app does not. Its Claude Code words are `ClaudeCodeWords`.
 enum GroupListWords {
-    static var use: String { String(localized: "Use") }
-    static var inUse: String { String(localized: "In use") }
-    // On the pointer over Use.
-    static var useHelp: String { String(localized: "Use this account in Claude Code. Open sessions switch within 30 s.") }
     // Separate sentences for one and many, since Korean does not add an "s".
     static func accounts(_ count: Int) -> String {
         count == 1 ? String(localized: "1 account") : String(localized: "\(count) accounts")

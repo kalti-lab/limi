@@ -20,8 +20,11 @@
 "%@ · hidden · Drag to reorder" = "%@ · 숨김 · 끌어서 순서 바꾸기";
 "%@ · no data yet" = "%@ · 아직 데이터 없음";
 "%@ — Settings" = "%@ — 설정";
+"%lld accounts" = "계정 %lld개";
 "%lld accounts in menu bar" = "메뉴 막대에 계정 %lld개";
+"%lld · drag to reorder the list" = "%lld개 · 끌어서 목록 순서 바꾸기";
 "(cached)" = "(저장된 값)";
+"1 account" = "계정 1개";
 "1 account in menu bar" = "메뉴 막대에 계정 1개";
 "1 minute" = "1분";
 "10 minutes" = "10분";
@@ -31,6 +34,7 @@
 "5-Hour Session" = "5시간 세션";
 "5-hour and weekly limits of your ChatGPT plan" = "ChatGPT 요금제의 5시간·주간 한도";
 "5-hour and weekly limits of your Claude plan" = "Claude 요금제의 5시간·주간 한도";
+"5h" = "5시간";
 "A ring with a full-size percentage beside it." = "링 옆에 퍼센트를 크게 보여 줍니다.";
 "Account" = "계정";
 "Account name" = "계정 이름";
@@ -38,15 +42,18 @@
 "Account usage has not loaded yet." = "아직 사용량을 불러오지 않았습니다.";
 "Account-wide Codex usage limits." = "계정 전체 Codex 사용 한도입니다.";
 "Accounts" = "계정";
+"Accounts in this group" = "이 그룹의 계정";
 "Accounts refresh only while a visible menu bar group uses them." = "메뉴 막대에 보이는 그룹이 쓰는 계정만 새로 고칩니다.";
 "Accounts used by a visible menu bar group refresh at this interval." = "메뉴 막대에 보이는 그룹이 쓰는 계정을 이 간격으로 새로 고칩니다.";
 "Accounts…" = "계정…";
+"Add" = "추가";
 "Add %@ account" = "%@ 계정 추가";
 "Add Account" = "계정 추가";
 "Add Account…" = "계정 추가…";
 "Add Group" = "그룹 추가";
 "Add a group, then add a line for each usage limit you want to see." = "그룹을 추가한 다음, 보고 싶은 사용 한도마다 줄을 추가하세요.";
 "Add an account in the Accounts tab first." = "먼저 계정 탭에서 계정을 추가하세요.";
+"Add an account to this group" = "이 그룹에 계정 추가";
 "Add usage line %lld" = "사용량 줄 %lld 추가";
 "All components are off. This group is hidden and its refresh is paused." = "보여 줄 요소가 모두 꺼져 있습니다. 이 그룹은 숨겨지고 새로 고침도 멈춥니다.";
 "Allow %@ in Login Items to finish turning this on." = "로그인 항목에서 %@ 앱을 허용하면 켜집니다.";
@@ -110,6 +117,7 @@
 "Each line shows one limit of one account; lines can come from different accounts. Click + in an empty slot to add a line." = "줄 하나에 한 계정의 한도 하나를 보여 줍니다. 줄마다 다른 계정을 써도 됩니다. 빈칸의 +를 눌러 줄을 추가하세요.";
 "Each value can come from any account. Click + to add one." = "값마다 다른 계정을 써도 됩니다. +를 눌러 추가하세요.";
 "Enable this account" = "이 계정 켜기";
+"Every account is in this group." = "모든 계정이 이 그룹에 있습니다.";
 "Every usage percentage, arranged from left to right." = "모든 사용량 퍼센트를 왼쪽부터 차례로 보여 줍니다.";
 "Experimental" = "실험 기능";
 "Experimental · Supports the one account signed in to agy or the Antigravity app on this Mac." = "실험 기능 · 이 Mac의 agy나 Antigravity 앱에 로그인된 계정 1개만 지원합니다.";
@@ -130,6 +138,8 @@
 "Menu Bar" = "메뉴 막대";
 "Move %@ account" = "%@ 계정 옮기기";
 "Move down" = "아래로 옮기기";
+"Move left" = "왼쪽으로 옮기기";
+"Move right" = "오른쪽으로 옮기기";
 "Move up" = "위로 옮기기";
 "Move usage line %lld" = "사용량 줄 %lld 옮기기";
 "Multi Bar" = "멀티 바";
@@ -158,6 +168,7 @@
 "Refresh now" = "지금 새로 고침";
 "Refreshing…" = "새로 고치는 중…";
 "Remaining %lld%%" = "%lld%% 남음";
+"Remove %@ from this group" = "%@ 계정을 이 그룹에서 빼기";
 "Remove Line" = "줄 삭제";
 "Remove this usage line" = "이 사용량 줄 삭제";
 "Remove values until three remain to switch styles." = "모양을 바꾸려면 값을 세 개까지 줄이세요.";
@@ -230,12 +241,13 @@
 "Used %@" = "%@ 사용";
 "Used %lld%%" = "%lld%% 사용";
 "Version" = "버전";
+"Week" = "주간";
 "Weekly" = "주간";
 "Weekly Limit" = "주간 한도";
 "agy on this Mac isn't signed in. Run agy in Terminal and sign in, then try again." = "이 Mac의 agy에 로그인되어 있지 않습니다. 터미널에서 agy를 실행해 로그인한 다음 다시 시도하세요.";
 "just now" = "방금";
 
-/* Use in Claude Code: switching the login Claude Code uses to a Limi account. */
+/* Use and In use: switching the login Claude Code uses to a Limi account. */
 "Checking Claude Code…" = "Claude Code를 확인하는 중…";
 "Reading the current Claude Code login…" = "지금 Claude Code 로그인을 읽는 중…";
 "Switching Claude Code…" = "Claude Code 계정을 바꾸는 중…";
@@ -285,7 +297,7 @@
 "An account is signing in for Claude Code. Wait for it to finish." = "Claude Code용 로그인이 진행 중입니다. 끝날 때까지 기다리세요.";
 "Switching Claude Code to %@…" = "Claude Code를 %@ 계정으로 바꾸는 중…";
 "Sign in once in Settings › Accounts so Claude Code can use this account." = "Claude Code가 이 계정을 쓸 수 있게 설정 › 계정에서 한 번 로그인하세요.";
-"Switches Claude Code to this account. Open sessions switch within 30 s." = "Claude Code를 이 계정으로 바꿉니다. 열려 있는 세션도 30초 안에 바뀝니다.";
+"Use this account in Claude Code. Open sessions switch within 30 s." = "이 계정을 Claude Code에서 씁니다. 열려 있는 세션도 30초 안에 바뀝니다.";
 "Claude Code now uses %@. Open sessions switch within 30 s. Remote Control disconnects." = "이제 Claude Code가 %@ 계정을 씁니다. 열려 있는 세션도 30초 안에 바뀌고, Remote Control 연결은 끊깁니다.";
 "The saved sign-in for %@ expired. Set it up again in Settings › Accounts." = "%@ 계정에 저장된 로그인이 만료되었습니다. 설정 › 계정에서 다시 준비하세요.";
 "Set up %@ for Claude Code in Settings › Accounts first." = "먼저 설정 › 계정에서 %@ 계정을 Claude Code용으로 준비하세요.";
@@ -295,9 +307,9 @@
 "Claude Code now uses %@." = "이제 Claude Code가 %@ 계정을 씁니다.";
 "Claude Code is signed in as %@, which isn't in %@. Switching removes that login from Claude Code." = "Claude Code가 %@ 계정으로 로그인되어 있는데, 이 계정은 %@ 앱에 없습니다. 바꾸면 Claude Code에서 이 로그인이 사라집니다.";
 "Claude Code is signed in to an account that isn't in %@. Switching removes that login from Claude Code." = "Claude Code가 %@ 앱에 없는 계정으로 로그인되어 있습니다. 바꾸면 Claude Code에서 이 로그인이 사라집니다.";
-"In Claude Code" = "Claude Code 사용 중";
+"In use" = "사용 중";
 "Claude Code is signed in to this account." = "Claude Code가 이 계정으로 로그인되어 있습니다.";
-"Use in Claude Code" = "Claude Code에서 쓰기";
+"Use" = "쓰기";
 "Set Up in Settings…" = "설정에서 준비하기…";
 "Switch" = "바꾸기";
 "Open Log" = "기록 열기";
@@ -308,6 +320,6 @@
 "Not set up for Claude Code" = "Claude Code용 준비 전";
 "Set Up…" = "준비하기…";
 "Sign in once in the browser so Claude Code can switch to this account without it." = "브라우저에서 한 번 로그인해 두면, 다음부터는 브라우저 없이 Claude Code를 이 계정으로 바꿀 수 있습니다.";
-"This removes only the selected account’s %@ credentials, usage cache and the sign-in saved for Use in Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved." = "선택한 계정의 %@ 자격 증명과 사용량 캐시, Claude Code용으로 저장한 로그인만 삭제합니다. CLI 로그인은 Claude Code가 지금 쓰는 것까지 그대로 남습니다.";
+"This removes only the selected account’s %@ credentials, usage cache and the sign-in saved for Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved." = "선택한 계정의 %@ 자격 증명과 사용량 캐시, Claude Code용으로 저장한 로그인만 삭제합니다. CLI 로그인은 Claude Code가 지금 쓰는 것까지 그대로 남습니다.";
 "Delete and Reconnect wait until Claude Code has switched accounts." = "Claude Code 계정을 다 바꿀 때까지 삭제와 다시 연결은 기다립니다.";
 "Delete and Reconnect wait until %@ has checked Claude Code." = "%@ 앱이 Claude Code를 다 확인할 때까지 삭제와 다시 연결은 기다립니다.";

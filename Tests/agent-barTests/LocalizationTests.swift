@@ -23,4 +23,23 @@ struct LocalizationTests {
             #expect(placeholders(key) == placeholders(value), "\(key) → \(value)")
         }
     }
+
+    // The words a group's accounts brought (Settings › Menu Bar and the panel's list) and the renamed Claude Code
+    // buttons have Korean; the buttons' old words are gone with them.
+    @Test func koreanHasTheNewWordsAndNotTheOldOnes() throws {
+        let strings = try #require(korean)
+        let added = [
+            "Use", "In use", "Use this account in Claude Code. Open sessions switch within 30 s.",
+            "This removes only the selected account’s %@ credentials, usage cache and the sign-in saved for Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved.",
+            "Accounts in this group", "%lld · drag to reorder the list", "Add", "Add an account to this group",
+            "Every account is in this group.", "Remove %@ from this group", "Move left", "Move right",
+            "1 account", "%lld accounts", "5h", "Week",
+        ]
+        for key in added { #expect(strings[key] != nil, "\(key)") }
+        let removed = [
+            "Use in Claude Code", "In Claude Code", "Switches Claude Code to this account. Open sessions switch within 30 s.",
+            "This removes only the selected account’s %@ credentials, usage cache and the sign-in saved for Use in Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved.",
+        ]
+        for key in removed { #expect(strings[key] == nil, "\(key)") }
+    }
 }

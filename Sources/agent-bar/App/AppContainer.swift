@@ -22,9 +22,9 @@ final class AppContainer {
                                 claudeCode: Self.claudeCodeAllowed(environment, isAppBundle: isAppBundle) ? .system(files: files) : nil)
     }
 
-    // "Use in Claude Code" changes the login Claude Code itself uses, whatever data folder the app was given. Only the app
-    // gets a switcher: `swift run`, or a run with its own data folder or defaults, is a development or test run. It must
-    // not change that login, nor finish a switch the installed app has under way in the same folder.
+    // Switching Claude Code's account changes the login Claude Code itself uses, whatever data folder the app was given.
+    // Only the app gets a switcher: `swift run`, or a run with its own data folder or defaults, is a development or test
+    // run. It must not change that login, nor finish a switch the installed app has under way in the same folder.
     nonisolated static func claudeCodeAllowed(_ environment: [String: String], isAppBundle: Bool) -> Bool {
         isAppBundle && environment["AGENTBAR_DATA_DIR"] == nil && environment["AGENTBAR_DEFAULTS_SUITE"] == nil
     }

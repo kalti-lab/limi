@@ -32,7 +32,7 @@ final class UsageStore: ObservableObject {
     @Published var displayWidthWarning = false
     private var displayWritable = true
 
-    // "Use in Claude Code" (UsageStore+ClaudeCode.swift). Only that file changes these.
+    // Switching Claude Code's account (UsageStore+ClaudeCode.swift). Only that file changes these.
     @Published var claudeCodeAvailability = ClaudeCodeAvailability.unknown
     // The registered account Claude Code is signed in to, as last read.
     @Published var claudeCodeAccountID: UUID?
@@ -88,8 +88,8 @@ final class UsageStore: ObservableObject {
     // has only one account.
     static let appRequestSpacing: [ProviderKind: Duration] = [.claude: .seconds(1), .codex: .milliseconds(500)]
 
-    // `claudeCode` turns on "Use in Claude Code"; only the app's assembly passes the real one. `claudeCodeBrowser`
-    // opens the sign-in page for it. Only the app passes `appRequestSpacing`, so tests do not wait.
+    // `claudeCode` turns on switching Claude Code's account; only the app's assembly passes the real one.
+    // `claudeCodeBrowser` opens the sign-in page for it. Only the app passes `appRequestSpacing`, so tests do not wait.
     init(settings: AppSettings, files: AccountFiles = AccountFiles(), autoRefresh: Bool = true,
          loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)? = nil,
          requestSpacing: [ProviderKind: Duration] = [:],

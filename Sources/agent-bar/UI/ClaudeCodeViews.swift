@@ -7,9 +7,9 @@ struct ClaudeCodePanel: Equatable {
     enum Control: Equatable {
         // Nothing: the feature is off, Claude Code is not installed, or the account is not a Claude account.
         case hidden
-        // The login Claude Code uses now is this account's.
+        // "In use": the login Claude Code uses now is this account's.
         case inClaudeCode
-        // "Use in Claude Code". `help` says what it does, or why it cannot be pressed.
+        // "Use". `help` says what it does, or why it cannot be pressed.
         case use(enabled: Bool, help: String)
         // "Set Up in Settings…": this account has no sign-in saved for Claude Code yet. The button opens Settings ›
         // Accounts, where the account signs in once; the panel never opens a browser.
@@ -40,8 +40,19 @@ struct ClaudeCodePanel: Equatable {
     }
 }
 
-// The control beside the provider name: "Use in Claude Code", "Set Up in Settings…" for an account with no sign-in
-// saved yet, or "In Claude Code" for the account Claude Code already uses.
+// What the app calls using an account in Claude Code, in one place so the panel's header, a group's account list and
+// Settings › Accounts say the same. The Use button's help comes with its control from
+// `UsageStore.claudeCodePanel(for:)`, since it also says why the button is blocked.
+enum ClaudeCodeWords {
+    // The button that switches Claude Code to the account.
+    static var use: String { String(localized: "Use") }
+    // The state of the account Claude Code uses now.
+    static var inUse: String { String(localized: "In use") }
+    static var inUseHelp: String { String(localized: "Claude Code is signed in to this account.") }
+}
+
+// The control beside the provider name: "Use", "Set Up in Settings…" for an account with no sign-in saved yet, or
+// "In use" for the account Claude Code already uses.
 struct ClaudeCodeControlView: View {
     let control: ClaudeCodePanel.Control
     var use: () -> Void = {}
@@ -56,14 +67,14 @@ struct ClaudeCodeControlView: View {
             EmptyView()
         case .inClaudeCode:
             // A state, not a button: no background, a check beside the words.
-            Label("In Claude Code", systemImage: "checkmark.circle.fill")
+            Label(ClaudeCodeWords.inUse, systemImage: "checkmark.circle.fill")
                 .font(Self.textFont)
                 .foregroundStyle(.green)
                 .fixedSize()
-                .help("Claude Code is signed in to this account.")
+                .help(ClaudeCodeWords.inUseHelp)
         case .use(let enabled, let help):
             // A real button, even inside the header's borderless ones; a blocked one is grey but still a button.
-            Button(action: use) { Text("Use in Claude Code").font(Self.textFont) }
+            Button(action: use) { Text(ClaudeCodeWords.use).font(Self.textFont) }
                 .buttonStyle(PanelBorderedButtonStyle())
                 .disabled(!enabled)
                 .fixedSize()
@@ -80,7 +91,7 @@ struct ClaudeCodeControlView: View {
 extension ClaudeCodeControlView {
     // Draws nothing and takes no width; a line that holds it is as tall as one with the button.
     static var heightTemplate: some View {
-        Button {} label: { Text("Use in Claude Code").font(textFont) }
+        Button {} label: { Text(ClaudeCodeWords.use).font(textFont) }
             .buttonStyle(PanelBorderedButtonStyle())
             .fixedSize()
             .hidden()
@@ -209,10 +220,10 @@ struct ClaudeCodeSetupView: View {
         case .hidden:
             EmptyView()
         case .inClaudeCode:
-            Label("In Claude Code", systemImage: "checkmark.circle.fill")
+            Label(ClaudeCodeWords.inUse, systemImage: "checkmark.circle.fill")
                 .fontWeight(.semibold)
                 .foregroundStyle(.green)
-                .help("Claude Code is signed in to this account.")
+                .help(ClaudeCodeWords.inUseHelp)
         case .ready:
             Label {
                 Text("Ready for Claude Code")

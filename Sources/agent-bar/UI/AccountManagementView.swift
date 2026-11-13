@@ -87,7 +87,7 @@ struct AccountManagementView: View {
             }
         } message: {
             if deleting?.provider == .claude && store.claudeCodeEnabled {
-                Text("This removes only the selected account’s \(AppInfo.name) credentials, usage cache and the sign-in saved for Use in Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved.")
+                Text("This removes only the selected account’s \(AppInfo.name) credentials, usage cache and the sign-in saved for Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved.")
             } else {
                 Text("This removes only the selected account’s \(AppInfo.name) credentials and usage cache. External CLI sign-ins are preserved.")
             }

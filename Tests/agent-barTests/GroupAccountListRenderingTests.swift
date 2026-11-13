@@ -285,7 +285,7 @@ struct GroupAccountListRenderingTests {
         let claude = usage(.claude, 42, 21, models: [("Fable", 40)], plan: "Max")
         let switching = String(localized: "Claude Code is being switched. Wait for it to finish.")
         let reconnect = String(localized: "Reconnect this account before using it in Claude Code.")
-        let useHelp = "Switches Claude Code to this account. Open sessions switch within 30 s."
+        let useHelp = "Use this account in Claude Code. Open sessions switch within 30 s."
         func row(_ badge: String, _ address: String, _ snapshot: ProviderSnapshot, _ control: ClaudeCodePanel.Control = .hidden,
                  _ lines: [ClaudeCodePanel.Line] = [], pointer: Bool = false, refreshing: Bool = false) -> GroupAccountRow {
             GroupAccountRow(provider: snapshot.provider, badge: badge, address: address, snapshot: snapshot, refreshing: refreshing,

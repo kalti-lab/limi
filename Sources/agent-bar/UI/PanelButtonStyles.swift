@@ -50,7 +50,7 @@ private struct PanelButtonBody: View {
     }
 }
 
-// The panel's bordered buttons (Use in Claude Code, Set Up in Settings…, and the question's Cancel and Switch): a grey
+// The panel's bordered buttons (Use, Set Up in Settings…, and the question's Cancel and Switch): a grey
 // rounded fill like a small bordered button, a shade darker under the pointer and darker again while pressed. A blocked
 // one keeps a fainter fill, so it still reads as a button that is there.
 struct PanelBorderedButtonStyle: ButtonStyle {

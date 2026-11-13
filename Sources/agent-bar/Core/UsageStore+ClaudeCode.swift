@@ -1,11 +1,11 @@
 import AppKit
 import Foundation
 
-// "Use in Claude Code": the store's side of switching the login Claude Code itself uses to a Limi account. The engine
-// (ClaudeCodeSwitcher) does the work and blocks, so it always runs on a background task; this file keeps what the
+// The store's side of switching the login Claude Code itself uses to a Limi account ("Use" beside the account). The
+// engine (ClaudeCodeSwitcher) does the work and blocks, so it always runs on a background task; this file keeps what the
 // panels and Settings › Accounts show about it. Adapted from the original AgentBar.
 
-// Whether the Claude account panels can offer "Use in Claude Code" at all.
+// Whether the Claude account panels can offer "Use" at all.
 enum ClaudeCodeAvailability: Equatable, Sendable {
     // Not read yet.
     case unknown
@@ -59,7 +59,7 @@ enum ClaudeCodeWaitingAction { case delete, reconnect }
 
 extension UsageStore {
     var claudeCodeLogURL: URL { ActivityLog.claudeCodeSwitchURL(root: files.root) }
-    // Whether "Use in Claude Code" exists at all in this run.
+    // Whether switching Claude Code's account exists at all in this run.
     var claudeCodeEnabled: Bool { claudeCode != nil }
 
     func openClaudeCodeLog() {
@@ -161,7 +161,7 @@ extension UsageStore {
             // Nothing to hand over yet. The browser sign-in that makes it is done in Settings, never from the panel.
             control = .setUp(help: String(localized: "Sign in once in Settings › Accounts so Claude Code can use this account."))
         } else {
-            control = .use(enabled: true, help: String(localized: "Switches Claude Code to this account. Open sessions switch within 30 s."))
+            control = .use(enabled: true, help: String(localized: "Use this account in Claude Code. Open sessions switch within 30 s."))
         }
         return ClaudeCodePanel(control: control, lines: lines)
     }
@@ -211,7 +211,7 @@ extension UsageStore {
 
     // MARK: Switching
 
-    // "Use in Claude Code" in an account's panel.
+    // "Use" beside an account: in its panel's header or in a group's account list.
     func useInClaudeCode(_ account: UsageAccount) {
         // The registry's own copy, in case the one the panel holds is older.
         guard let account = accounts.first(where: { $0.id == account.id }), canStartClaudeCodeSwitch(account) else { return }
