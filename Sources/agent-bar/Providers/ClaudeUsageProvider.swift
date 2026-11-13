@@ -38,7 +38,8 @@ struct ClaudeUsageProvider: UsageProviding {
                     try control.checkCancellation()
                     credentials = try readCredentials()
                 }
-                let remoteResult = try await resolveRemoteUsage(credentials: credentials)
+                let couponsDue = couponsDue()
+                let remoteResult = try await resolveRemoteUsage(credentials: credentials, withCoupons: couponsDue)
                 guard credentials.cacheKey == (try readCredentials().cacheKey) else {
                     throw AccountError.message(String(localized: "The CLI account changed during the request. Refresh again."))
                 }
@@ -72,7 +73,7 @@ struct ClaudeUsageProvider: UsageProviding {
                     isStale: remoteResult.isStale,
                     requiresLogin: Self.requiresLogin(for: remoteResult.data.apiError)
                 )
-                if !remoteResult.isStale { snapshot.resetCoupons = await readCoupons(accessToken: credentials.accessToken) }
+                if !remoteResult.isStale { snapshot.resetCoupons = noteCoupons(answer: remoteResult.couponAnswer) }
                 return snapshot
             } catch {
                 let requiresLogin = Self.requiresLogin(for: error)
@@ -95,7 +96,7 @@ struct ClaudeUsageProvider: UsageProviding {
         }.value
     }
 
-    private func resolveRemoteUsage(credentials: ClaudeCredentials) async throws -> RemoteUsageResult {
+    private func resolveRemoteUsage(credentials: ClaudeCredentials, withCoupons: Bool = false) async throws -> RemoteUsageResult {
         try control.checkCancellation()
         let cache = ClaudeUsageCache(overrideURL: cacheURL, enabled: cacheURL != nil)
         let now = Date.now
@@ -113,7 +114,7 @@ struct ClaudeUsageProvider: UsageProviding {
 
         let planName = planName(from: credentials.subscriptionType)
         try control.checkCancellation()
-        let apiResult = await fetchUsageApi(accessToken: credentials.accessToken)
+        let apiResult = await fetchUsageApi(accessToken: credentials.accessToken, withCoupons: withCoupons)
 
         if let payload = apiResult.data {
             let selectedWeeklyWindow = Self.selectWeeklyWindow(from: payload)
@@ -143,7 +144,8 @@ struct ClaudeUsageProvider: UsageProviding {
                 updatedAt: now,
                 note: note(for: successData),
                 isStale: false,
-                sourceDescription: sourceDescription(for: successData)
+                sourceDescription: sourceDescription(for: successData),
+                couponAnswer: withCoupons ? apiResult.body : nil
             )
         }
 
@@ -236,9 +238,9 @@ struct ClaudeUsageProvider: UsageProviding {
         }
     }
 
-    private func fetchUsageApi(accessToken: String) async -> UsageApiResult {
+    private func fetchUsageApi(accessToken: String, withCoupons: Bool = false) async -> UsageApiResult {
         do {
-            let request = try makeUsageRequest(accessToken: accessToken)
+            let request = try makeUsageRequest(accessToken: accessToken, withCoupons: withCoupons)
             try control.checkCancellation()
             let (data, response) = try await transport(request)
 
@@ -257,7 +259,7 @@ struct ClaudeUsageProvider: UsageProviding {
 
             do {
                 let payload = try JSONDecoder().decode(UsageApiResponse.self, from: data)
-                return UsageApiResult(data: payload, error: nil, retryAfterSeconds: nil)
+                return UsageApiResult(data: payload, error: nil, retryAfterSeconds: nil, body: data)
             } catch {
                 return UsageApiResult(data: nil, error: "parse", retryAfterSeconds: nil)
             }
@@ -271,8 +273,10 @@ struct ClaudeUsageProvider: UsageProviding {
         }
     }
 
-    private func makeUsageRequest(accessToken: String) throws -> URLRequest {
-        guard let url = URL(string: "https://api.anthropic.com/api/oauth/usage") else {
+    // With `withCoupons` the same read also brings the account's coupons: the answer holds the usage as well. A second
+    // read right after the first is refused (429), so the coupons never get a request of their own.
+    private func makeUsageRequest(accessToken: String, withCoupons: Bool = false) throws -> URLRequest {
+        guard let url = withCoupons ? ClaudeCedar.readURL : URL(string: "https://api.anthropic.com/api/oauth/usage") else {
             throw ClaudeUsageError.invalidURL
         }
 
@@ -489,6 +493,8 @@ private struct RemoteUsageResult {
     let note: String
     let isStale: Bool
     let sourceDescription: String
+    // The answer, when the read also asked for coupons.
+    var couponAnswer: Data? = nil
 }
 
 enum ClaudeUsageSource: String, Codable {
@@ -577,6 +583,7 @@ private struct UsageApiResult {
     let data: UsageApiResponse?
     let error: String?
     let retryAfterSeconds: Int?
+    var body: Data? = nil
 }
 
 private struct UsageWindowPayload: Decodable {
@@ -812,54 +819,50 @@ struct ClaudeUsageCache {
     }
 }
 
-// Usage-reset coupons ("cedar_ember"). Read beside the usage only now and then (`ClaudeCouponRecord`), and only for an
-// account with a usage cache, which is every account in the app; used only when a person confirms.
+// Usage-reset coupons ("cedar_ember"). The usage read asks for them too now and then (`ClaudeCouponRecord`), only for an
+// account with a usage cache, which is every account in the app; one is used only when a person confirms.
 extension ClaudeUsageProvider {
-    func readCoupons(accessToken: String, now: Date = .now) async -> UsageResetCoupons? {
-        guard let cacheURL else { return nil }
-        let url = ClaudeCouponRecord.url(nextTo: cacheURL)
+    private var couponRecordURL: URL? { cacheURL.map { ClaudeCouponRecord.url(nextTo: $0) } }
+
+    func couponRecord() -> ClaudeCouponRecord? {
+        guard let url = couponRecordURL, let data = try? Data(contentsOf: url) else { return nil }
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-        let previous = (try? Data(contentsOf: url)).flatMap { try? decoder.decode(ClaudeCouponRecord.self, from: $0) }
-        func held(_ record: ClaudeCouponRecord?) -> UsageResetCoupons? {
-            // A coupon whose last day has passed is gone; the next read says what is left.
-            guard var coupons = record?.coupons else { return nil }
+        return try? decoder.decode(ClaudeCouponRecord.self, from: data)
+    }
+
+    // Whether this read should also ask for the coupons. Never without a usage cache, so tests and the claim do not.
+    func couponsDue(now: Date = .now) -> Bool {
+        guard cacheURL != nil else { return false }
+        return couponRecord().map { now >= $0.nextCheck } ?? true
+    }
+
+    // The coupons to show after a read: from its answer when it asked for them, else what was last known, less any
+    // whose last day has passed.
+    func noteCoupons(answer: Data?, now: Date = .now) -> UsageResetCoupons? {
+        let previous = couponRecord()
+        var record = ClaudeCouponRecord(coupons: previous?.coupons, nextCheck: previous?.nextCheck ?? now)
+        if var coupons = record.coupons {
             coupons.count -= coupons.expiries.filter { $0 <= now }.count
             coupons.expiries.removeAll { $0 <= now }
-            return coupons.usable
+            record.coupons = coupons.usable
         }
-        if let previous, now < previous.nextCheck { return held(previous) }
-
-        var record = ClaudeCouponRecord(coupons: held(previous), nextCheck: now.addingTimeInterval(ClaudeCouponRecord.failureInterval))
-        do {
-            var request = URLRequest(url: ClaudeCedar.readURL)
-            request.httpMethod = "GET"
-            request.timeoutInterval = 15
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-            request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-            request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
-            try control.checkCancellation()
-            let (data, response) = try await transport(request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if status == 200, let block = ClaudeCedar.block(from: data) {
+        if let answer {
+            let block = ClaudeCedar.block(from: answer)
+            if let block, block.eligible != true, block.ineligibleReason == "unavailable" {
                 // A service fault says nothing about the coupons; keep what was known.
-                if block.eligible == true || block.ineligibleReason != "unavailable" {
-                    record.coupons = ClaudeCedar.coupons(block, now: now)
-                    record.nextCheck = now.addingTimeInterval(block.eligible == true ? ClaudeCouponRecord.interval
-                                                                                     : ClaudeCouponRecord.ineligibleInterval)
-                }
-            } else if status == 200 {
-                // An answer without the block: this account has no coupons to read.
-                record.coupons = nil
-                record.nextCheck = now.addingTimeInterval(ClaudeCouponRecord.ineligibleInterval)
-            } else if status == 429 || status == 403 {
-                let wait = Self.parseRetryAfterSeconds((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After"))
-                record.nextCheck = now.addingTimeInterval(min(3600, max(ClaudeCouponRecord.failureInterval, TimeInterval(wait ?? 0))))
+                record.nextCheck = now.addingTimeInterval(ClaudeCouponRecord.failureInterval)
+            } else {
+                record.coupons = block.flatMap { ClaudeCedar.coupons($0, now: now) }
+                record.nextCheck = now.addingTimeInterval(block?.eligible == true ? ClaudeCouponRecord.interval
+                                                                                  : ClaudeCouponRecord.ineligibleInterval)
             }
-        } catch {}
-        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(record) {
-            try? data.write(to: url, options: .atomic)
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        }
+        if record != previous, let url = couponRecordURL {
+            let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+            if let data = try? encoder.encode(record) {
+                try? data.write(to: url, options: .atomic)
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            }
         }
         return record.coupons
     }

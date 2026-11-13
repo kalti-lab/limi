@@ -74,29 +74,46 @@ struct ClaudeResetCouponTests {
         #expect(outcome("brand_new") == (.tryLater, true))
     }
 
-    @Test func couponsAreReadEveryHalfHourAndRarelyWhenTheAccountCannotHaveAny() async throws {
+    @Test func theUsageReadBringsTheCouponsEveryHalfHourAndNeverSendsASecondRequest() async throws {
         let fixture = try ClaudeFixture()
         defer { fixture.close() }
-        fixture.transport.answer = (200, Self.body(grants: [["id": "g", "resets_left": 2, "ends_at": Self.at(9), "type": "full"]]))
-        let first = await fixture.provider.readCoupons(accessToken: "tok", now: Self.now)
-        #expect(first?.count == 2)
-        #expect(fixture.transport.requests.map { $0.url } == [ClaudeCedar.readURL])
+        fixture.transport.answer = (200, Self.body(grants: [["id": "g", "resets_left": 2, "ends_at": Self.at(9_000), "type": "full"]]))
+        let first = await fixture.provider.load()
+        #expect(first.resetCoupons?.count == 2 && first.fiveHour?.utilization != nil)
+        #expect(fixture.transport.requests.map(\.url) == [ClaudeCedar.readURL])
         #expect(fixture.transport.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
-        // Within the half hour the file answers.
-        #expect(await fixture.provider.readCoupons(accessToken: "tok", now: Self.now.addingTimeInterval(29 * 60))?.count == 2)
-        #expect(fixture.transport.requests.count == 1)
-        // A refused read keeps what was known.
-        fixture.transport.answer = (429, Data())
-        #expect(await fixture.provider.readCoupons(accessToken: "tok", now: Self.now.addingTimeInterval(31 * 60))?.count == 2)
+        // The next read within the half hour asks for usage only, and the coupons are what was known.
+        ClaudeUsageCache(overrideURL: fixture.cacheURL, enabled: true).expire()
+        let second = await fixture.provider.load()
         #expect(fixture.transport.requests.count == 2)
-        // An account that cannot have coupons is asked again only after six hours.
-        fixture.transport.answer = (200, Self.body(eligible: false, reason: "surface", grants: []))
-        let later = Self.now.addingTimeInterval(40 * 60)
-        #expect(await fixture.provider.readCoupons(accessToken: "tok", now: later) == nil)
-        _ = await fixture.provider.readCoupons(accessToken: "tok", now: later.addingTimeInterval(5 * 3600))
-        #expect(fixture.transport.requests.count == 3)
-        _ = await fixture.provider.readCoupons(accessToken: "tok", now: later.addingTimeInterval(6 * 3600 + 1))
-        #expect(fixture.transport.requests.count == 4)
+        #expect(fixture.transport.requests.last?.url?.absoluteString == "https://api.anthropic.com/api/oauth/usage")
+        #expect(second.resetCoupons?.count == 2)
+        let now = Date()
+        #expect(!fixture.provider.couponsDue(now: now.addingTimeInterval(29 * 60)))
+        #expect(fixture.provider.couponsDue(now: now.addingTimeInterval(31 * 60)))
+        // Refused usage: no coupons offered, and they are asked for again with the next read.
+        fixture.transport.answer = (429, Data())
+        ClaudeUsageCache(overrideURL: fixture.cacheURL, enabled: true).expire()
+        try FileManager.default.removeItem(at: ClaudeCouponRecord.url(nextTo: fixture.cacheURL))
+        #expect(await fixture.provider.load().resetCoupons == nil)
+        #expect(fixture.provider.couponsDue())
+    }
+
+    @Test func anAccountThatCannotHaveCouponsIsAskedRarelyAndAFaultKeepsWhatWasKnown() throws {
+        let fixture = try ClaudeFixture()
+        defer { fixture.close() }
+        let provider = fixture.provider, now = Date()
+        let granted = Self.body(grants: [["id": "g", "resets_left": 2, "ends_at": Self.at(9_000), "type": "full"]])
+        #expect(provider.noteCoupons(answer: granted, now: now)?.count == 2)
+        // The service could not say: the coupons stay, and it is asked again in 5 minutes.
+        #expect(provider.noteCoupons(answer: Self.body(eligible: false, reason: "unavailable", grants: []), now: now)?.count == 2)
+        #expect(provider.couponsDue(now: now.addingTimeInterval(5 * 60 + 1)))
+        // Not for this account: none, and asked again only after six hours.
+        #expect(provider.noteCoupons(answer: Self.body(eligible: false, reason: "surface", grants: []), now: now) == nil)
+        #expect(!provider.couponsDue(now: now.addingTimeInterval(5 * 3600)))
+        #expect(provider.couponsDue(now: now.addingTimeInterval(6 * 3600 + 1)))
+        // Without an answer, what was known.
+        #expect(provider.noteCoupons(answer: nil, now: now) == nil)
     }
 
     @Test func aClaimPostsTheGrantToTheAccountsOrganizationAndReusesAnUnconfirmedRequestID() async throws {
@@ -132,9 +149,10 @@ struct ClaudeResetCouponTests {
 private struct ClaudeFixture {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("coupon-claude-\(UUID())")
     let transport = FakeTransport()
+    var cacheURL: URL { root.appendingPathComponent("cache/usage.json") }
     var provider: ClaudeUsageProvider {
         let transport = transport
-        return ClaudeUsageProvider(directory: root, cacheURL: root.appendingPathComponent("cache/usage.json"),
+        return ClaudeUsageProvider(directory: root, cacheURL: cacheURL,
                                    transport: { try transport.send($0) })
     }
 

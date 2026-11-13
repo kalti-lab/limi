@@ -105,8 +105,8 @@ enum ClaudeCedar {
     }
 }
 
-// When an account's coupons were last read, so they are asked about only now and then: every 30 minutes, every 6 hours
-// while the account cannot have any, and after a refused read only when the service says.
+// What an account's coupons were and when the usage read should ask for them again: after 30 minutes, after 6 hours while
+// the account cannot have any, after 5 minutes when the service could not say.
 struct ClaudeCouponRecord: Codable, Equatable {
     var coupons: UsageResetCoupons?
     var nextCheck: Date
