@@ -24,6 +24,9 @@ final class MenuBarPanel<Content: View> {
 
     init(rootView: Content) {
         host = ResizingHostingView(rootView: rootView)
+        // The panel shows no title bar, so its content starts at the top edge. Without this SwiftUI keeps the
+        // transparent title bar's height empty above it.
+        host.safeAreaRegions = []
         panel = KeyablePanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView], backing: .buffered, defer: true)
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true

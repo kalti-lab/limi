@@ -111,7 +111,7 @@ struct GroupAccountListView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     let name = store.displayConfiguration.effectiveLayouts.first { $0.id == groupID }?.name ?? ""
                     Group { if name.isEmpty { Text("Untitled") } else { Text(verbatim: name) } }
-                        .font(.headline).lineLimit(1)
+                        .font(.title3.weight(.bold)).lineLimit(1)
                     Text(GroupListWords.accounts(accounts.count))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1).fixedSize()
                 }
