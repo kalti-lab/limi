@@ -11,17 +11,18 @@ enum SettingsStyle {
     static let sectionSpacing: CGFloat = 20
 }
 
-/// A section title, aligned with the rows below it.
+/// A section title, aligned with the rows below it. The title is a key in the
+/// app's strings, so it shows in the app's language.
 struct SettingsSectionTitle: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+    let text: LocalizedStringKey
+    init(_ text: LocalizedStringKey) { self.text = text }
     var body: some View { Text(text).font(.headline).padding(.leading, SettingsStyle.rowInsets.leading) }
 }
 
 struct SettingsSection<Content: View>: View {
-    let title: String?
+    let title: LocalizedStringKey?
     let content: Content
-    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }

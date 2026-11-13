@@ -24,8 +24,9 @@ struct LocalizationTests {
         }
     }
 
-    // The words a group's accounts brought (Settings › Menu Bar and the panel's list) and the renamed Claude Code
-    // buttons have Korean; the buttons' old words are gone with them.
+    // The words a group's accounts brought (Settings › Menu Bar and the panel's list), the renamed Claude Code
+    // buttons, Settings' section titles and the ‹ › buttons of a row too wide for Settings have Korean; the
+    // buttons' old words are gone with them.
     @Test func koreanHasTheNewWordsAndNotTheOldOnes() throws {
         let strings = try #require(korean)
         let added = [
@@ -35,6 +36,7 @@ struct LocalizationTests {
             "Every account is in this group.", "Remove %@ from this group", "Move left", "Move right",
             "1 account", "%lld accounts", "5h", "Week",
             "Sort by", "Sort the list", "Sort: %@", "Manual", "5-hour reset", "Weekly reset",
+            "Menu bar preview", "Groups", "Refresh", "Language", "Startup", "Recovery", "Scroll left", "Scroll right",
         ]
         for key in added { #expect(strings[key] != nil, "\(key)") }
         let removed = [

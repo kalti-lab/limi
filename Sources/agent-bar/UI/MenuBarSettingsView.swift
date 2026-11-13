@@ -13,6 +13,12 @@ private struct GroupFrames: PreferenceKey {
     }
 }
 
+// The slot of the group tab being dragged, so its lifted copy can be drawn outside the scrolling row.
+private struct DraggedGroupTab: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = value ?? nextValue() }
+}
+
 struct MenuBarSettingsView: View {
     @EnvironmentObject private var store: UsageStore
     @State private var groupDrag: GroupDragPreview?
@@ -56,7 +62,23 @@ struct MenuBarSettingsView: View {
     }
 
     // Groups are tabs sitting on the editor below, so the selected one reads as "this group".
+    // Many groups scroll sideways at their own size; the selected tab stays in view.
     private var groupTabs: some View {
+        OverflowStrip(order: groups.map(\.id) + [Self.addGroupTabID], focus: selected?.id, height: 28) {
+            groupTabRow
+        }
+        // The lifted tab is drawn over the row, not in it, so the row's edges don't cut it off.
+        .overlayPreferenceValue(DraggedGroupTab.self) { slot in
+            GeometryReader { proxy in
+                if let slot { liftedGroupTab(from: proxy[slot]) }
+            }
+        }
+        .zIndex(groupDrag == nil ? 0 : 1)
+    }
+
+    private static let addGroupTabID = UUID()
+
+    private var groupTabRow: some View {
         HStack(spacing: 2) {
             ForEach(groups) { group in
                 Button { store.selectMenuBarGroup(group.id) } label: {
@@ -80,6 +102,8 @@ struct MenuBarSettingsView: View {
                 .background(GeometryReader { proxy in
                     Color.clear.preference(key: GroupFrames.self, value: [group.id: proxy.frame(in: .named("group-order"))])
                 })
+                .anchorPreference(key: DraggedGroupTab.self, value: .bounds) { groupDrag?.source == group.id ? $0 : nil }
+                .overflowStripItem(group.id)
                 .opacity(groupDrag?.source == group.id ? 0 : 1)
                 .offset(groupDrag?.offset(for: group.id) ?? .zero)
                 .animation(.snappy(duration: 0.18), value: groupDrag?.target)
@@ -92,13 +116,12 @@ struct MenuBarSettingsView: View {
                 .buttonStyle(GroupTabStyle(selected: false))
                 .help("Add Group")
                 .accessibilityLabel("Add Group")
-            Spacer(minLength: 0)
+                .overflowStripItem(Self.addGroupTabID)
         }
         .padding(.horizontal, 8)
         .coordinateSpace(name: "group-order")
         .onPreferenceChange(GroupFrames.self) { groupFrames = $0 }
-        .overlay(alignment: .topLeading) { groupDragOverlay.allowsHitTesting(false) }
-        .zIndex(groupDrag == nil ? 0 : 1)
+        .overlay(alignment: .topLeading) { groupDropSlot.allowsHitTesting(false) }
     }
 
     private func groupLabel(_ group: MenuBarLayout) -> some View {
@@ -108,18 +131,25 @@ struct MenuBarSettingsView: View {
         }
     }
 
-    @ViewBuilder private var groupDragOverlay: some View {
-        if let drag = groupDrag, let group = groups.first(where: { $0.id == drag.source }) {
+    // Where the dragged tab will land, in the row so it scrolls and fades with the tabs.
+    @ViewBuilder private var groupDropSlot: some View {
+        if let drag = groupDrag {
             DragSlotPlaceholder()
                 .frame(width: drag.placeholder.width, height: drag.placeholder.height)
                 .offset(x: drag.placeholder.minX, y: drag.placeholder.minY)
                 .animation(.snappy(duration: 0.18), value: drag.target)
+        }
+    }
+
+    // The dragged tab follows the pointer from its own slot, wherever the row has scrolled to.
+    @ViewBuilder private func liftedGroupTab(from slot: CGRect) -> some View {
+        if let drag = groupDrag, let group = groups.first(where: { $0.id == drag.source }) {
             groupLabel(group)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 8)
-                .frame(width: drag.floatingFrame.width, height: drag.floatingFrame.height)
+                .frame(width: slot.width, height: slot.height)
                 .modifier(FloatingDragCard(settling: settlingGroupDrag))
-                .offset(x: drag.floatingFrame.minX, y: drag.floatingFrame.minY)
+                .offset(x: slot.minX + drag.translation.width, y: slot.minY + drag.translation.height)
                 .accessibilityHidden(true)
         }
     }
@@ -615,25 +645,29 @@ private struct MenuBarPreview: View {
         groups.filter { $0.enabled && $0.showsAnything && ($0.rows.isEmpty || !store.entries(for: $0).isEmpty) }
     }
     var body: some View {
-        HStack(spacing: 2) {
-            Spacer(minLength: 8)
-            if shown.isEmpty {
-                Text("No groups shown").font(.caption).foregroundStyle(.tertiary)
-            }
-            ForEach(shown) { group in
-                Button { store.selectMenuBarGroup(group.id) } label: {
-                    Image(nsImage: image(for: group))
-                        .padding(.horizontal, 3).padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(group.id == selectedID ? Color.primary.opacity(0.14) : .clear))
+        // Items keep their menu bar size and scroll when they don't fit, starting
+        // at the right end as the menu bar does; the selected group stays in view.
+        OverflowStrip(order: shown.map(\.id), focus: selectedID, height: 32, trailing: true) {
+            HStack(spacing: 2) {
+                if shown.isEmpty {
+                    Text("No groups shown").font(.caption).foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.plain)
-                .help("\(group.name) · Click to edit this group")
-                .accessibilityLabel("Select \(group.name)")
+                ForEach(shown) { group in
+                    Button { store.selectMenuBarGroup(group.id) } label: {
+                        Image(nsImage: image(for: group))
+                            .padding(.horizontal, 3).padding(.vertical, 2)
+                            .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(group.id == selectedID ? Color.primary.opacity(0.14) : .clear))
+                    }
+                    .buttonStyle(.plain)
+                    .help("\(group.name) · Click to edit this group")
+                    .accessibilityLabel("Select \(group.name)")
+                    .overflowStripItem(group.id)
+                }
             }
+            .padding(.horizontal, 10)
+            .frame(height: 32)
         }
-        .padding(.horizontal, 10)
-        .frame(height: 32)
         // A strip like the menu bar itself rather than a field: no border, a
         // soft shadow, items on the right as macOS places them.
         .background(.bar, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -643,5 +677,142 @@ private struct MenuBarPreview: View {
         DisplayStatusRenderer.render(entries: store.entries(for: group), config: group.renderingConfiguration(store.displayConfiguration),
             height: 20, scale: 2, explicitRows: true,
             appearance: NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua))
+    }
+}
+
+// MARK: - A row that scrolls sideways
+
+private enum StripSpace { static let content = "overflow-strip-content", viewport = "overflow-strip-viewport" }
+
+private struct StripItemFrames: PreferenceKey {
+    static var defaultValue: [AnyHashable: CGRect] { [:] }
+    static func reduce(value: inout [AnyHashable: CGRect], nextValue: () -> [AnyHashable: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct StripContentFrame: PreferenceKey {
+    static var defaultValue: CGRect { .zero }
+    // Views that set nothing still pass the default along, so only a set frame counts.
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue(); if next != .zero { value = next }
+    }
+}
+
+private struct StripViewportWidth: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+extension View {
+    /// One item of an `OverflowStrip`: brought into view by its id and paged past one at a time.
+    fileprivate func overflowStripItem<ID: Hashable>(_ id: ID) -> some View {
+        self.id(id).background(GeometryReader { proxy in
+            Color.clear.preference(key: StripItemFrames.self, value: [AnyHashable(id): proxy.frame(in: .named(StripSpace.content))])
+        })
+    }
+}
+
+/// Items at their own size in one row. When they don't fit, the row scrolls
+/// sideways with no scroll bar: a trackpad swipe moves it, ‹ › buttons at its
+/// ends move it one item at a time, and a side with items cut off fades out.
+/// `focus` comes into view when it changes. A `trailing` row sits on the right
+/// and opens at its right end, as the menu bar does; any other opens with
+/// `focus` in view.
+private struct OverflowStrip<ID: Hashable, Content: View>: View {
+    let order: [ID]
+    let focus: ID?
+    let height: CGFloat
+    var trailing = false
+    @ViewBuilder let content: () -> Content
+    @State private var itemFrames: [AnyHashable: CGRect] = [:]
+    @State private var contentFrame: CGRect = .zero
+    @State private var viewportWidth: CGFloat = 0
+    private static var fade: CGFloat { 20 }
+    private var overflows: Bool { contentFrame.width > viewportWidth + 0.5 }
+    private var hiddenBefore: Bool { overflows && contentFrame.minX < -0.5 }
+    private var hiddenAfter: Bool { overflows && contentFrame.maxX > viewportWidth + 0.5 }
+    // The part of the row in view and clear of a fade, in the row's own coordinates.
+    private var clearStart: CGFloat { -contentFrame.minX + (hiddenBefore ? Self.fade : 0) }
+    private var clearEnd: CGFloat { -contentFrame.minX + viewportWidth - (hiddenAfter ? Self.fade : 0) }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            HStack(spacing: 0) {
+                if overflows {
+                    arrow("chevron.left", label: "Scroll left", enabled: hiddenBefore) { page(forward: false, proxy) }
+                }
+                ScrollView(.horizontal) {
+                    content()
+                        .frame(minWidth: viewportWidth, alignment: trailing ? .trailing : .leading)
+                        .coordinateSpace(name: StripSpace.content)
+                        .onPreferenceChange(StripItemFrames.self) { itemFrames = $0 }
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key: StripContentFrame.self, value: geometry.frame(in: .named(StripSpace.viewport)))
+                        })
+                }
+                // Never, not hidden: a Mac set to show scroll bars would still show them under hidden.
+                .scrollIndicators(.never)
+                .coordinateSpace(name: StripSpace.viewport)
+                .defaultScrollAnchor(trailing ? .trailing : .leading)
+                .onPreferenceChange(StripContentFrame.self) { contentFrame = $0 }
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: StripViewportWidth.self, value: geometry.size.width)
+                })
+                .onPreferenceChange(StripViewportWidth.self) { viewportWidth = $0 }
+                .mask { fades }
+                if overflows {
+                    arrow("chevron.right", label: "Scroll right", enabled: hiddenAfter) { page(forward: true, proxy) }
+                }
+            }
+            // The row finds out it overflows once it has measured itself, as it opens.
+            .onChange(of: overflows) { _, overflows in
+                if overflows, !trailing, let focus { reveal(focus, proxy, animated: false) }
+            }
+            .onChange(of: focus) { _, id in
+                // Wait a turn: a group added just now has no frame until this update lays it out.
+                if let id { DispatchQueue.main.async { reveal(id, proxy, animated: true) } }
+            }
+        }
+    }
+
+    private var fades: some View {
+        HStack(spacing: 0) {
+            LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                .frame(width: hiddenBefore ? Self.fade : 0)
+            Rectangle()
+            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(width: hiddenAfter ? Self.fade : 0)
+        }
+    }
+
+    private func arrow(_ symbol: String, label: LocalizedStringKey, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+                .frame(width: 20, height: height).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).foregroundStyle(.secondary)
+        .opacity(enabled ? 1 : 0.35).disabled(!enabled)
+        .help(Text(label)).accessibilityLabel(Text(label))
+    }
+
+    // One item per press: the first one cut off on that side comes into view.
+    private func page(forward: Bool, _ proxy: ScrollViewProxy) {
+        let frames = order.compactMap { id in itemFrames[AnyHashable(id)].map { (id, $0) } }
+        let next = forward ? frames.first { $0.1.maxX > clearEnd + 0.5 } : frames.last { $0.1.minX < clearStart - 0.5 }
+        if let next { reveal(next.0, proxy, animated: true) }
+    }
+
+    /// Scrolls an item that is cut off or under a fade fully into view, its
+    /// near edge one fade's width inside that end of the row.
+    private func reveal(_ id: ID, _ proxy: ScrollViewProxy, animated: Bool) {
+        guard overflows, let frame = itemFrames[AnyHashable(id)] else { return }
+        // scrollTo lines up this point of the item with the same point of the row.
+        let inset = Self.fade / max(viewportWidth - frame.width, Self.fade)
+        let anchor: UnitPoint
+        if frame.minX < clearStart - 0.5 { anchor = UnitPoint(x: inset, y: 0.5) }
+        else if frame.maxX > clearEnd + 0.5 { anchor = UnitPoint(x: 1 - inset, y: 0.5) }
+        else { return }
+        withAnimation(animated ? .snappy(duration: 0.25) : nil) { proxy.scrollTo(id, anchor: anchor) }
     }
 }
