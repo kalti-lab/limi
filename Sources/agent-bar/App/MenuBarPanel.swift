@@ -100,7 +100,7 @@ final class MenuBarPanel<Content: View> {
             if event.window !== panel && event.window !== anchor?.window { close() }
             return event
         }) { monitors.append(local) }
-        // Settings opened from the panel (gear, Accounts…) becomes key without
+        // Settings opened from the panel (gear, Accounts) becomes key without
         // a click in its window, so close on that too instead of floating above it.
         keyWindowChange = NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
             .receive(on: RunLoop.main).sink { [weak self] notification in

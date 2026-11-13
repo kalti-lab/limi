@@ -44,7 +44,6 @@
 "Accounts in this group" = "이 그룹의 계정";
 "Accounts refresh only while a visible menu bar group uses them." = "메뉴 막대에 보이는 그룹이 쓰는 계정만 새로 고칩니다.";
 "Accounts used by a visible menu bar group refresh at this interval." = "메뉴 막대에 보이는 그룹이 쓰는 계정을 이 간격으로 새로 고칩니다.";
-"Accounts…" = "계정…";
 "Add" = "추가";
 "Add %@ account" = "%@ 계정 추가";
 "Add Account" = "계정 추가";

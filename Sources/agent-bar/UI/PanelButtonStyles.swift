@@ -7,7 +7,7 @@ struct PanelButtonStyle: ButtonStyle {
     enum Kind {
         // An icon (refresh, settings): keeps its own colour, gets the background.
         case icon
-        // Words (Accounts…, Quit, Open Log): grey until the pointer is over them, then full colour.
+        // Words (Accounts, Quit, Open Log): grey until the pointer is over them, then full colour.
         case text
     }
 

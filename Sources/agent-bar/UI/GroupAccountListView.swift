@@ -405,7 +405,7 @@ struct GroupAccountListView: View {
             }
             Spacer(minLength: 4)
             HStack(spacing: 0) {
-                Button("Accounts…") { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) }
+                Button("Accounts") { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) }
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }
             .buttonStyle(PanelButtonStyle(kind: .text))
