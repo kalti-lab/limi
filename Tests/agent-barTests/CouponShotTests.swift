@@ -62,10 +62,16 @@ struct CouponShotTests {
         let codex = UsageResetCoupons(count: 3, scope: .fiveHourAndWeekly, expiries: [day(12, 1), day(12, 2), day(12, 13)],
                                       claim: .codex(creditID: "c"))
         let claude = UsageResetCoupons(count: 2, scope: .weekly, expiries: [day(12, 5), day(12, 5)], claim: .claudeGrant(grantID: "g"))
+        // Usage that fits each state: none left after a full reset, well under the limits when there is nothing to reset.
         func row(_ panel: CouponPanel, provider: ProviderKind = .codex) -> GroupAccountRow {
-            GroupAccountRow(provider: provider, badge: provider == .codex ? "CX" : "CL",
-                            address: provider == .codex ? "team@example.com" : "me@example.com",
-                            snapshot: snapshot(provider, panel.line == .result(.reset, left: 2) ? 0 : 96), coupon: panel)
+            let usage = switch panel.line {
+            case .result(.reset, _): (fiveHour: 0, weekly: 0)
+            case .result(.nothingToReset, _): (fiveHour: 12, weekly: 5)
+            default: (fiveHour: 96, weekly: 41)
+            }
+            return GroupAccountRow(provider: provider, badge: provider == .codex ? "CX" : "CL",
+                                   address: provider == .codex ? "team@example.com" : "me@example.com",
+                                   snapshot: snapshot(provider, usage.fiveHour, usage.weekly), coupon: panel)
         }
         return [
             ShotState(id: "none", title: "쿠폰 없음 (지금과 같음)", row: row(.none)),
@@ -81,10 +87,10 @@ struct CouponShotTests {
         ]
     }
 
-    private static func snapshot(_ provider: ProviderKind, _ fiveHour: Int) -> ProviderSnapshot {
+    private static func snapshot(_ provider: ProviderKind, _ fiveHour: Int, _ weekly: Int) -> ProviderSnapshot {
         ProviderSnapshot(provider: provider, updatedAt: .now,
             fiveHour: WindowSummary(tokens: fiveHour, limitTokens: 100, resetAt: .now.addingTimeInterval(2 * 3600), displayStyle: .percentage),
-            weekly: WindowSummary(tokens: 41, limitTokens: 100, resetAt: .now.addingTimeInterval(3 * 86_400), displayStyle: .percentage),
+            weekly: WindowSummary(tokens: weekly, limitTokens: 100, resetAt: .now.addingTimeInterval(3 * 86_400), displayStyle: .percentage),
             modelWeeklies: [], planName: provider == .codex ? "Team" : "Max", sourceDescription: "Fixture", note: nil,
             isStale: false, requiresLogin: false)
     }
