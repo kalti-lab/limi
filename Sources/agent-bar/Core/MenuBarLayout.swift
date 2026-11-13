@@ -50,6 +50,8 @@ struct MenuBarLayout: Codable, Equatable, Identifiable {
     var rows: [MenuBarLine] = []
     /// The accounts this group holds, in the order its panel lists them. Nil: the accounts its lines use.
     var memberIDs: [UUID]? = nil
+    /// How the group's panel orders its accounts. Nil: in the group's own order, `.manual`.
+    var listSort: GroupListSort? = nil
     // The native menu bar slot is independent of which group is displayed in it.
     // Reordering groups reuses these slots, preserving other apps' positions.
     var statusItemPositionID: UUID? = nil
