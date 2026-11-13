@@ -114,6 +114,151 @@ struct GroupAccountListRenderingTests {
         }
     }
 
+    @Test func autoScrollMovesOneRowTowardTheEdge() {
+        // Near an edge, or past it, the list scrolls that way; in between it does not.
+        #expect(ListAutoScroll.direction(pointerY: 10, viewportHeight: 300) == .up)
+        #expect(ListAutoScroll.direction(pointerY: -40, viewportHeight: 300) == .up)
+        #expect(ListAutoScroll.direction(pointerY: 290, viewportHeight: 300) == .down)
+        #expect(ListAutoScroll.direction(pointerY: 340, viewportHeight: 300) == .down)
+        for y: CGFloat in [28, 150, 272] { #expect(ListAutoScroll.direction(pointerY: y, viewportHeight: 300) == nil, "\(y)") }
+        #expect(ListAutoScroll.direction(pointerY: 10, viewportHeight: 0) == nil)
+        // Too short for two edges: the half the pointer is in.
+        #expect(ListAutoScroll.direction(pointerY: 10, viewportHeight: 40) == .up)
+        #expect(ListAutoScroll.direction(pointerY: 30, viewportHeight: 40) == .down)
+
+        // Six rows of different heights a point apart, as the list lays them out, seen 200 points at a time.
+        let heights: [CGFloat] = [60, 80, 60, 100, 60, 60]
+        let ids = heights.map { _ in UUID() }
+        var frames: [UUID: CGRect] = [:], y: CGFloat = 4
+        for (id, height) in zip(ids, heights) { frames[id] = CGRect(x: 6, y: y, width: 388, height: height); y += height + 1 }
+        func next(_ direction: ListAutoScroll.Direction, from top: CGFloat) -> UUID? {
+            ListAutoScroll.nextRow(direction, order: ids, frames: frames, visible: top...(top + 200))
+        }
+        // At the top: going down brings in the row the bottom edge cuts; going up has nowhere to go.
+        #expect(next(.down, from: 0) == ids[2])
+        #expect(next(.up, from: 0) == nil)
+        // Midway, one row each way: the next one past each edge.
+        #expect(next(.down, from: 150) == ids[4])
+        #expect(next(.up, from: 150) == ids[2])
+        // Step by step as the list does it (the row's edge to the view's edge), every row in turn, then a stop at the end.
+        var top: CGFloat = 0, passed: [UUID] = []
+        while let id = next(.down, from: top), passed.count < 10 { passed.append(id); top = frames[id]!.maxY - 200 }
+        #expect(passed == Array(ids[2...]))
+        #expect(next(.down, from: top) == nil)
+        passed = []
+        while let id = next(.up, from: top), passed.count < 10 { passed.append(id); top = frames[id]!.minY }
+        #expect(passed == Array(ids[0...3].reversed()))
+        #expect(next(.up, from: top) == nil)
+    }
+
+    @Test func aDraggedRowMakesRoomForItsOwnHeight() {
+        // A tall row over two short ones, a point apart.
+        let tall = UUID(), first = UUID(), second = UUID()
+        let frames = [tall: CGRect(x: 6, y: 4, width: 388, height: 100), first: CGRect(x: 6, y: 105, width: 388, height: 60),
+                      second: CGRect(x: 6, y: 166, width: 388, height: 60)]
+        var drag = ListRowDrag(source: tall, order: [tall, first, second], frames: frames, pointer: CGPoint(x: 100, y: 54),
+                               start: CGPoint(x: 100, y: 50), origin: .zero)
+        #expect(drag.preview.translation == CGSize(width: 0, height: 4))
+        // Onto the last row: the others move up by the tall row's height, and its slot opens where it really lands, not
+        // in the last row's place, which is too short for it.
+        drag.pointer = CGPoint(x: 100, y: 190)
+        drag.follow(origin: .zero)
+        #expect(drag.target == second)
+        #expect(drag.offset(for: first) == CGSize(width: 0, height: -101))
+        #expect(drag.offset(for: second) == CGSize(width: 0, height: -101))
+        #expect(drag.placeholder == CGRect(x: 6, y: 126, width: 388, height: 100))
+        #expect(drag.landingTranslation == CGSize(width: 0, height: 122))
+        // The list scrolls 40 points under a pointer that stays still: the dragged row and the drop follow the content.
+        drag.follow(origin: CGPoint(x: 0, y: -40))
+        #expect(drag.preview.location == CGPoint(x: 100, y: 230))
+        #expect(drag.preview.translation == CGSize(width: 0, height: 180))
+        // Off every row nothing moves, and the row would go back to its place.
+        drag.pointer = CGPoint(x: 100, y: 400)
+        drag.follow(origin: .zero)
+        #expect(drag.target == nil && drag.offset(for: first) == .zero && drag.placeholder == frames[tall])
+    }
+
+    // The list driven by the mouse, as in the panel: a press stays a press, a drag reorders the group, a row held at an edge
+    // scrolls the list to its end, and once a drop settles, the row under the pointer has its buttons back.
+    @Test func draggingARowReordersTheGroupAndScrollsAtTheEdges() async throws {
+        let f = try SwitchFixture()
+        let accounts = (1...7).map { f.addAccount("cl\($0)") }
+        // Claude Code uses CL1, and CL2 is ready to take over.
+        f.signInDefault(accounts[0])
+        try f.saveLogin(for: accounts[1])
+        var registry = AccountRegistry(accounts: f.accounts); registry.repairRepresentatives()
+        try f.files.write(registry, to: f.files.registryURL)
+        let suite = "group-list-drag-\(UUID())", defaults = UserDefaults(suiteName: suite)!
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: f.files, autoRefresh: false,
+                               claudeCode: f.switcher, claudeCodeBrowser: BrowserLoginLauncher(openURL: { _ in true }))
+        defer { store.shutdown(); defaults.removePersistentDomain(forName: suite) }
+        await store.runClaudeCodeStartup()
+        let ids = accounts.map(\.id)
+        let group = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: ids[0], metricID: "5h")], memberIDs: ids)
+        store.updateDisplay { $0.editLayouts { $0 = [group] } }
+        func order() -> String { (store.groupMembers(group.id) ?? []).map { id in accounts.first { $0.id == id }?.name ?? "?" }.joined(separator: " ") }
+
+        // Shorter than its rows, so they scroll, a step at a time without the glide. The panel would hand the view each new
+        // order; it does not wait for that.
+        let view = GroupAccountListView(accountIDs: ids, groupID: group.id, stepAnimation: nil).environmentObject(store)
+        let window = ListWindow(view, height: 360)
+        defer { window.close() }
+        try await Task.sleep(for: .milliseconds(100))
+        let list = try #require(window.scrollView)
+        let content = try #require(list.documentView?.frame.size)
+        let viewport = list.convert(list.bounds, to: nil)
+        let maxScroll = content.height - viewport.height
+        // Rows of one height a point apart, between 4-point margins.
+        let rowHeight = (content.height - 8 - CGFloat(ids.count - 1)) / CGFloat(ids.count)
+        // A point in the list's content, or in the part in view, from the window's top left.
+        func inView(_ y: CGFloat, x: CGFloat = 100) -> CGPoint { CGPoint(x: viewport.minX + x, y: window.height - viewport.maxY + y) }
+        func row(_ index: Int) -> CGPoint { inView(4 + CGFloat(index) * (rowHeight + 1) + rowHeight / 2 - list.contentView.bounds.minY) }
+        #expect(maxScroll > 2 * rowHeight)
+
+        // A press that moves 2 points is a press: nothing moves.
+        try await window.drag(from: row(1), to: row(1).moved(0, 2))
+        #expect(order() == "cl1 cl2 cl3 cl4 cl5 cl6 cl7")
+        // Dragged onto the third row, the first goes there.
+        try await window.drag(from: row(0), to: row(2))
+        try #require(await until { order() == "cl2 cl3 cl1 cl4 cl5 cl6 cl7" }, "\(order())")
+        // Held near the bottom, the list scrolls a row at a time to its end; the drop puts the row last.
+        let bottom = inView(viewport.height - 10)
+        try await window.drag(from: row(0), to: bottom, release: false)
+        try #require(await until { abs(list.contentView.bounds.minY - maxScroll) < 1 }, "\(list.contentView.bounds.minY)")
+        // The row floats under the pointer over the dashed slot it would drop into.
+        if let output = ProcessInfo.processInfo.environment["AGENTBAR_QA_ARTIFACT_DIR"].map({ URL(fileURLWithPath: $0) }) {
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try await Task.sleep(for: .milliseconds(300))
+            try window.picture(to: output.appendingPathComponent("group-list-drag.png"))
+        }
+        try await window.send(.leftMouseUp, bottom)
+        try #require(await until { order() == "cl3 cl1 cl4 cl5 cl6 cl7 cl2" }, "\(order())")
+        // CL2, now the last row in view, held near the top: the list scrolls back, and CL2 goes first.
+        let top = inView(8)
+        try await window.drag(from: row(6), to: top, release: false)
+        try #require(await until { list.contentView.bounds.minY < 0.5 }, "\(list.contentView.bounds.minY)")
+        try await window.send(.leftMouseUp, top)
+        try #require(await until { order() == "cl2 cl3 cl1 cl4 cl5 cl6 cl7" }, "\(order())")
+
+        // The pointer rests on CL2, so its Use button is back without the pointer moving, and a click that wobbles a
+        // point uses the account rather than dragging it.
+        let titleHeight = NSHostingView(rootView: ClaudeCodeControlView.heightTemplate).fittingSize.height
+        let use = inView(4 + 7 + titleHeight / 2, x: content.width - 6 - 8 - 10)
+        try await window.drag(from: use, to: use.moved(1, 1))
+        try #require(await until { store.claudeCodeAccountID == accounts[1].id }, "Use did not switch Claude Code")
+        #expect(f.defaultEmail == "cl2@example.test")
+        #expect(order() == "cl2 cl3 cl1 cl4 cl5 cl6 cl7")
+    }
+
+    private func until(timeout: Duration = .seconds(5), _ condition: () -> Bool) async -> Bool {
+        let clock = ContinuousClock(), deadline = clock.now.advanced(by: timeout)
+        while !condition() {
+            guard clock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return true
+    }
+
     // MARK: Fixtures
 
     private static func usage(_ provider: ProviderKind, _ fiveHour: Int?, _ weekly: Int?, models: [(String, Int)] = [], plan: String? = nil,
@@ -189,4 +334,63 @@ struct GroupAccountListRenderingTests {
         if let url { try bitmap.representation(using: .png, properties: [:])?.write(to: url) }
         return size
     }
+}
+
+// A view in a borderless window far off screen: never seen and never made key, yet AppKit hands it the mouse events a
+// panel gets.
+@MainActor
+private final class ListWindow {
+    private let window: NSWindow
+
+    init<V: View>(_ view: V, height: CGFloat) {
+        _ = NSApplication.shared
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: GroupAccountListView.width, height: height), styleMask: [.borderless],
+                          backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: view)
+        window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
+        window.orderFrontRegardless()
+        window.contentView?.layoutSubtreeIfNeeded()
+    }
+
+    var height: CGFloat { window.frame.height }
+    var scrollView: NSScrollView? { window.contentView.flatMap(Self.scrollView(in:)) }
+
+    func close() { window.orderOut(nil) }
+
+    func picture(to url: URL) throws {
+        let view = try #require(window.contentView)
+        let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        try bitmap.representation(using: .png, properties: [:])?.write(to: url)
+    }
+
+    /// A point from the window's top left.
+    func send(_ type: NSEvent.EventType, _ point: CGPoint) async throws {
+        let event = try #require(NSEvent.mouseEvent(with: type, location: NSPoint(x: point.x, y: height - point.y), modifierFlags: [],
+                                                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        window.sendEvent(event)
+        try await Task.sleep(for: .milliseconds(16))
+    }
+
+    /// Presses at `start`, moves to `end` 16 points at a time, and lets go there unless `release` is false.
+    func drag(from start: CGPoint, to end: CGPoint, release: Bool = true) async throws {
+        try await send(.leftMouseDown, start)
+        let distance = hypot(end.x - start.x, end.y - start.y)
+        let steps = max(1, Int((distance / 16).rounded(.up)))
+        for step in 1...steps {
+            let part = CGFloat(step) / CGFloat(steps)
+            try await send(.leftMouseDragged, CGPoint(x: start.x + (end.x - start.x) * part, y: start.y + (end.y - start.y) * part))
+        }
+        if release { try await send(.leftMouseUp, end) }
+    }
+
+    private static func scrollView(in view: NSView) -> NSScrollView? {
+        (view as? NSScrollView) ?? view.subviews.lazy.compactMap(scrollView(in:)).first
+    }
+}
+
+private extension CGPoint {
+    func moved(_ dx: CGFloat, _ dy: CGFloat) -> CGPoint { CGPoint(x: x + dx, y: y + dy) }
 }

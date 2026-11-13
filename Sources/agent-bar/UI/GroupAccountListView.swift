@@ -17,21 +17,44 @@ enum GroupListWords {
 // account with every limit its service reports. There is no detail view behind a row.
 struct GroupAccountListView: View {
     static let width: CGFloat = 400
+    // A drag is measured in two places: the list's content, which scrolls, and the part of it in view.
+    private static let content = "list-content"
+    private static let viewport = "list-viewport"
 
     let accountIDs: [UUID]
     let groupID: UUID
     @EnvironmentObject private var store: UsageStore
     @State private var hovered: UUID?
+    // Dragging a row reorders the group's accounts, the order of its chips in Settings.
+    @State private var drag: ListRowDrag?
+    @State private var settling = false
+    @GestureState private var dragging = false
+    // Where the rows are in the content, where the content sits in view, and the size of the part in view.
+    @State private var frames: [UUID: CGRect] = [:]
+    @State private var origin: CGPoint = .zero
+    @State private var viewport: CGSize = .zero
+    private let stepAnimation: Animation?
 
-    // `hovered` is the row the pointer starts over, for drawing that look.
-    init(accountIDs: [UUID], groupID: UUID, hovered: UUID? = nil) {
+    // `hovered` is the row the pointer starts over, for drawing that look. `stepAnimation` nil scrolls each step at once:
+    // a scroll animates only while the display is on, which a test cannot count on.
+    init(accountIDs: [UUID], groupID: UUID, hovered: UUID? = nil, stepAnimation: Animation? = ListAutoScroll.stepAnimation) {
         self.accountIDs = accountIDs
         self.groupID = groupID
+        self.stepAnimation = stepAnimation
         _hovered = State(initialValue: hovered)
     }
 
     private var accounts: [UsageAccount] {
-        MenuBarLayout.unique(accountIDs).compactMap { id in store.accounts.first { $0.id == id && !$0.deletionPending } }
+        var ids = MenuBarLayout.unique(accountIDs)
+        // The store's order once it holds the same rows: a dropped row stays where it was put, though the panel hands
+        // this view the new order a moment later.
+        if let live = liveOrder, live.count == ids.count, Set(live) == Set(ids) { ids = live }
+        return ids.compactMap { id in store.accounts.first { $0.id == id && !$0.deletionPending } }
+    }
+
+    /// The rows the store gives this list now, in its order, as the panel will show them.
+    private var liveOrder: [UUID]? {
+        store.displayConfiguration.effectiveLayouts.first { $0.id == groupID }.map { store.groupPanel(for: $0).accountIDs }
     }
 
     var body: some View {
@@ -45,12 +68,21 @@ struct GroupAccountListView: View {
                     rowList(accounts, claudeCode: claudeCode)
                     ScrollView { rowList(accounts, claudeCode: claudeCode) }
                 }
+                .coordinateSpace(name: Self.viewport)
+                .background(GeometryReader { Color.clear.preference(key: ListViewportSize.self, value: $0.size) })
+                .onPreferenceChange(ListRowFrames.self) { frames = $0 }
+                .onPreferenceChange(ListContentFrame.self) { contentMoved(to: $0.origin) }
+                .onPreferenceChange(ListViewportSize.self) { viewport = $0 }
                 // A row that comes to hold a result or a question is scrolled into view, so it counts as seen for real.
                 .onChange(of: Self.rowsAsking(accounts, claudeCode: claudeCode)) { old, new in
                     guard let id = new.first(where: { !old.contains($0) }) else { return }
                     withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id) }
                 }
+                // Dragged near the top or bottom, the list scrolls toward that edge.
+                .task(id: autoScroll) { await scrollWhileDragging(proxy) }
             }
+            // The dragged row floats over the footer.
+            .zIndex(drag == nil ? 0 : 1)
             Divider().padding(.horizontal, 14)
             footer(accounts)
         }
@@ -61,6 +93,9 @@ struct GroupAccountListView: View {
         .onChange(of: [groupID] + accountIDs, initial: true) { _, _ in
             store.claudeCodePanelShows(self.accounts.filter { $0.provider == .claude }.map(\.id), group: groupID)
         }
+        // The gesture ended without a drop, as when its row went away.
+        .onChange(of: dragging) { _, now in if !now { dragStopped() } }
+        .onDisappear { drag = nil; settling = false }
     }
 
     private static func rowsAsking(_ accounts: [UsageAccount], claudeCode: [UUID: ClaudeCodePanel]) -> [UUID] {
@@ -115,22 +150,63 @@ struct GroupAccountListView: View {
 
     private func rowList(_ accounts: [UsageAccount], claudeCode: [UUID: ClaudeCodePanel]) -> some View {
         let refreshed = store.refreshAccountIDs
+        let order = accounts.map(\.id)
         return VStack(spacing: 0) {
             ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
-                if index > 0 {
-                    // Gone beside the row under the pointer, whose background marks it instead.
-                    Divider().padding(.horizontal, 8)
-                        .opacity(hovered == account.id || hovered == accounts[index - 1].id ? 0 : 1)
-                }
-                row(account, refreshed: refreshed.contains(account.id), claudeCode: claudeCode[account.id] ?? .hidden)
-                    .id(account.id)
-                    .onHover { inside in
-                        if inside { hovered = account.id } else if hovered == account.id { hovered = nil }
+                // One view for the divider and the row: two would share the row's id, and scrolling to it would find the
+                // divider.
+                VStack(spacing: 0) {
+                    if index > 0 {
+                        // Gone beside the row under the pointer, whose background marks it instead, and while rows move
+                        // past them in a drag.
+                        Divider().padding(.horizontal, 8)
+                            .opacity(drag != nil || hovered == account.id || hovered == accounts[index - 1].id ? 0 : 1)
                     }
+                    row(account, refreshed: refreshed.contains(account.id), claudeCode: claudeCode[account.id] ?? .hidden)
+                        // Like the chips in Settings: a press that moves less than 4 points stays a press, so Use works.
+                        .highPriorityGesture(DragGesture(minimumDistance: 4, coordinateSpace: .named(Self.viewport))
+                            .updating($dragging) { _, state, _ in state = true }
+                            .onChanged { dragMoved(account.id, $0, order: order) }
+                            .onEnded { dragEnded($0) })
+                        .opacity(drag?.source == account.id ? 0 : 1)
+                        .offset(drag?.offset(for: account.id) ?? .zero)
+                        .animation(.snappy(duration: 0.18), value: drag?.target)
+                        // Measured where the row sits in the list, not where a drag shows it.
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: ListRowFrames.self, value: [account.id: proxy.frame(in: .named(Self.content))])
+                        })
+                        .onHover { inside in
+                            if inside { hovered = account.id } else if hovered == account.id { hovered = nil }
+                        }
+                }
+                // The list's top and bottom margins go with the first and last rows, so scrolling to them reaches the ends.
+                .padding(.top, index == 0 ? 4 : 0)
+                .padding(.bottom, index == accounts.count - 1 ? 4 : 0)
+                .id(account.id)
             }
         }
         .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .coordinateSpace(name: Self.content)
+        .background(GeometryReader { proxy in
+            Color.clear.preference(key: ListContentFrame.self, value: proxy.frame(in: .named(Self.viewport)))
+        })
+        .overlay(alignment: .topLeading) {
+            dragOverlay(accounts, refreshed: refreshed, claudeCode: claudeCode).allowsHitTesting(false)
+        }
+    }
+
+    // Where the dragged row will land, and the row itself following the pointer.
+    @ViewBuilder private func dragOverlay(_ accounts: [UsageAccount], refreshed: Set<UUID>, claudeCode: [UUID: ClaudeCodePanel]) -> some View {
+        if let drag, let account = accounts.first(where: { $0.id == drag.source }) {
+            DragSlotPlaceholder(cornerRadius: 8)
+                .frame(width: drag.placeholder.width, height: drag.placeholder.height)
+                .offset(x: drag.placeholder.minX, y: drag.placeholder.minY)
+                .animation(.snappy(duration: 0.18), value: drag.target)
+            row(account, refreshed: refreshed.contains(account.id), claudeCode: claudeCode[account.id] ?? .hidden)
+                .frame(width: drag.floatingFrame.width, height: drag.floatingFrame.height)
+                .modifier(FloatingDragCard(settling: settling, liftScale: 1.02, cornerRadius: 8))
+                .offset(x: drag.floatingFrame.minX, y: drag.floatingFrame.minY)
+        }
     }
 
     private func row(_ account: UsageAccount, refreshed: Bool, claudeCode: ClaudeCodePanel) -> some View {
@@ -142,12 +218,93 @@ struct GroupAccountListView: View {
             refreshed: refreshed,
             refreshing: store.refreshingAccounts.contains(account.id),
             claudeCode: claudeCode,
-            highlighted: hovered == account.id,
+            // Not while a row is dragged: its buttons would show on whatever row the pointer passes.
+            highlighted: hovered == account.id && drag == nil,
             actions: .init(use: { store.useInClaudeCode(account) },
                            setUp: { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) },
                            confirm: { store.confirmClaudeCodeSwitch() },
                            decline: { store.cancelClaudeCodeConfirmation() },
                            openLog: { store.openClaudeCodeLog() }))
+    }
+
+    // MARK: Drag
+
+    private func dragMoved(_ id: UUID, _ value: DragGesture.Value, order: [UUID]) {
+        guard !settling else { return }
+        if drag?.source == id {
+            drag?.pointer = value.location
+            drag?.follow(origin: origin)
+        } else {
+            drag = ListRowDrag(source: id, order: order, frames: frames, pointer: value.location, start: value.startLocation,
+                               origin: origin)
+            hovered = nil
+        }
+    }
+
+    // The content moved under the pointer: the list scrolled, by itself during a drag or by hand.
+    private func contentMoved(to point: CGPoint) {
+        origin = point
+        if !settling { drag?.follow(origin: point) }
+    }
+
+    private func dragEnded(_ value: DragGesture.Value) {
+        guard var current = drag, !settling else { return }
+        current.pointer = value.location
+        current.follow(origin: origin)
+        let target = current.target
+        drag = current
+        withAnimation(.easeOut(duration: 0.16)) {
+            settling = true
+            drag?.preview.translation = current.landingTranslation
+        } completion: {
+            guard drag?.source == current.source, settling else { return }
+            var transaction = Transaction(); transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                // Dropped on an order changed elsewhere meanwhile: the drop no longer means anything.
+                var moved = false
+                if let target, liveOrder == current.preview.order {
+                    moved = store.moveGroupMember(current.source, to: target, in: groupID)
+                }
+                hovered = rowUnderPointer(current, moved: moved)
+                drag = nil
+                settling = false
+            }
+        }
+    }
+
+    // The gesture ended without a drop, as when the panel closed or the row went away: everything goes back.
+    private func dragStopped() {
+        guard drag != nil, !settling else { return }
+        drag = nil
+        hovered = nil
+    }
+
+    // The row the pointer rests on once the rows have settled, so its look and buttons come back without waiting for the
+    // pointer to move.
+    private func rowUnderPointer(_ drag: ListRowDrag, moved: Bool) -> UUID? {
+        let pointer = drag.pointer
+        guard (0...viewport.width).contains(pointer.x), (0...viewport.height).contains(pointer.y) else { return nil }
+        let point = CGPoint(x: pointer.x - origin.x, y: pointer.y - origin.y)
+        let rows = moved ? drag.landedFrames : drag.preview.frames
+        return rows.first { $0.value.contains(point) }?.key
+    }
+
+    private var autoScroll: ListAutoScroll.Direction? {
+        guard let drag, !settling else { return nil }
+        return ListAutoScroll.direction(pointerY: drag.pointer.y, viewportHeight: viewport.height)
+    }
+
+    // A row a step until the pointer leaves the edge, the drag ends or the end of the list is in view. A list that fits
+    // has nothing out of view, so it never scrolls.
+    private func scrollWhileDragging(_ proxy: ScrollViewProxy) async {
+        guard let direction = autoScroll else { return }
+        while !Task.isCancelled, let current = drag, !settling {
+            let visible = -origin.y...(-origin.y + viewport.height)
+            guard let next = ListAutoScroll.nextRow(direction, order: current.preview.order, frames: current.preview.frames,
+                                                    visible: visible) else { return }
+            withAnimation(stepAnimation) { proxy.scrollTo(next, anchor: ListAutoScroll.anchor(direction)) }
+            try? await Task.sleep(for: ListAutoScroll.step)
+        }
     }
 
     private func footer(_ accounts: [UsageAccount]) -> some View {
@@ -177,4 +334,118 @@ struct GroupAccountListView: View {
         guard let oldest = accounts.map({ store.snapshot(for: $0) }).filter({ !$0.isStale }).map(\.updatedAt).min() else { return "" }
         return String(localized: "Updated \(TokenFormatters.relativeUpdateString(from: now, updatedAt: oldest))")
     }
+}
+
+// MARK: Dragging rows
+
+// Each row's place in the list's content, which stays put as the list scrolls.
+private struct ListRowFrames: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] { [:] }
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+// Where the content sits in the part of the list in view (it moves up as the list scrolls down), and that part's size.
+// Views beside the one that measures hand in the empty default too; taking the last value would keep that instead.
+private struct ListContentFrame: PreferenceKey {
+    static var defaultValue: CGRect { .zero }
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { let next = nextValue(); if next != .zero { value = next } }
+}
+
+private struct ListViewportSize: PreferenceKey {
+    static var defaultValue: CGSize { .zero }
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { let next = nextValue(); if next != .zero { value = next } }
+}
+
+/// A row being dragged. The preview works in the list's content; the pointer is kept where it is in the part in view, so
+/// when the list scrolls under a pointer that stays still, the drop follows the content.
+struct ListRowDrag {
+    var preview: ReorderDragPreview<UUID>
+    var pointer: CGPoint
+    // Where the pointer started, in the content.
+    let start: CGPoint
+
+    /// `pointer` and `start` are in the part in view, where the content's corner is at `origin`.
+    init(source: UUID, order: [UUID], frames: [UUID: CGRect], pointer: CGPoint, start: CGPoint, origin: CGPoint) {
+        preview = ReorderDragPreview(source: source, order: order, frames: frames, location: .zero, translation: .zero,
+                                     hitPadding: CGSize(width: 3, height: 6))
+        self.pointer = pointer
+        self.start = CGPoint(x: start.x - origin.x, y: start.y - origin.y)
+        follow(origin: origin)
+    }
+
+    var source: UUID { preview.source }
+    var target: UUID? { preview.target }
+
+    /// After the pointer moves, or the content moves under it.
+    mutating func follow(origin: CGPoint) {
+        let location = CGPoint(x: pointer.x - origin.x, y: pointer.y - origin.y)
+        preview.location = location
+        preview.translation = CGSize(width: location.x - start.x, height: location.y - start.y)
+    }
+
+    /// Where each row goes in the new order. Rows keep their own heights and the gaps between them: the shared preview
+    /// moves a row into another row's slot, which only fits rows of one height, and these differ (a fourth limit, a
+    /// status line, Claude Code lines).
+    var landedFrames: [UUID: CGRect] {
+        let order = preview.order, frames = preview.frames
+        guard let first = order.first, var y = frames[first]?.minY else { return [:] }
+        var result: [UUID: CGRect] = [:]
+        for (index, id) in preview.previewOrder.enumerated() {
+            guard let frame = frames[id] else { continue }
+            result[id] = CGRect(origin: CGPoint(x: frame.minX, y: y), size: frame.size)
+            var gap: CGFloat = 0
+            if index + 1 < order.count, let upper = frames[order[index]], let lower = frames[order[index + 1]] {
+                gap = max(0, lower.minY - upper.maxY)
+            }
+            y += frame.height + gap
+        }
+        return result
+    }
+
+    func offset(for id: UUID) -> CGSize {
+        guard id != source, let landed = landedFrames[id], let frame = preview.frames[id] else { return .zero }
+        return CGSize(width: landed.minX - frame.minX, height: landed.minY - frame.minY)
+    }
+
+    var placeholder: CGRect { landedFrames[source] ?? preview.frames[source] ?? .zero }
+    var floatingFrame: CGRect { preview.floatingFrame }
+    var landingTranslation: CGSize {
+        let frame = preview.frames[source] ?? .zero
+        return CGSize(width: placeholder.minX - frame.minX, height: placeholder.minY - frame.minY)
+    }
+}
+
+/// While a row is dragged near the top or bottom of a list that scrolls, the list scrolls toward that edge, a row at a
+/// time: SwiftUI on macOS 14 scrolls only to a view (`ScrollViewReader`), so a step brings the next row into view.
+enum ListAutoScroll {
+    enum Direction: Equatable { case up, down }
+
+    // How near an edge the pointer starts the scrolling, how often it steps, and how each step glides.
+    static let edge: CGFloat = 28
+    static let step: Duration = .milliseconds(150)
+    static let stepAnimation: Animation = .linear(duration: 0.15)
+
+    /// Up within `edge` of the top or above it, down within `edge` of the bottom or below it; nothing in between.
+    static func direction(pointerY y: CGFloat, viewportHeight height: CGFloat) -> Direction? {
+        guard height > 0 else { return nil }
+        if y < min(edge, height / 2) { return .up }
+        if y > max(height - edge, height / 2) { return .down }
+        return nil
+    }
+
+    /// The row the next step scrolls to, from the rows' frames in the content and the part of the content in view:
+    /// going down, the first row that reaches below it; going up, the last that reaches above it. Nil once the list's
+    /// end is in view, which stops the scrolling.
+    static func nextRow<ID: Hashable>(_ direction: Direction, order: [ID], frames: [ID: CGRect], visible: ClosedRange<CGFloat>) -> ID? {
+        let slack: CGFloat = 0.5
+        switch direction {
+        case .down: return order.first { frames[$0].map { $0.maxY > visible.upperBound + slack } ?? false }
+        case .up: return order.last { frames[$0].map { $0.minY < visible.lowerBound - slack } ?? false }
+        }
+    }
+
+    /// Where the row lands: at the bottom going down, at the top going up.
+    static func anchor(_ direction: Direction) -> UnitPoint { direction == .down ? .bottom : .top }
 }
