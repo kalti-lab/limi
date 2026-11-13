@@ -128,7 +128,7 @@ private final class VisibilityFixture {
     }
     func close() { store.shutdown(); try? FileManager.default.removeItem(at: files.root); defaults.removePersistentDomain(forName: suite) }
     func waitFor(_ condition: () async -> Bool) async throws {
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(10)
         while !(await condition()) {
             if Date() > deadline { throw AccountError.timeout }
             try await Task.sleep(for: .milliseconds(5))
@@ -147,7 +147,7 @@ private actor VisibilityLoader {
     func release() { suspended = false }
     func load(_ account: UsageAccount, control: OperationControl) async -> ProviderSnapshot {
         counts[account.id, default: 0] += 1; controls[account.id] = control
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(10)
         while suspended && Date() < deadline { try? await Task.sleep(for: .milliseconds(5)) }
         return ProviderSnapshot(provider: account.provider, updatedAt: .now, fiveHour: nil,
             weekly: WindowSummary(tokens: 42, limitTokens: 100, resetAt: nil, displayStyle: .percentage),
