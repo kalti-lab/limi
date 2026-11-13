@@ -105,10 +105,8 @@ final class StatusBarController {
     let positionID: UUID
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let panel: MenuBarPanel<GroupPanelRoot>
-    private var entries: [MenuBarEntry] = []
     private var dragSurface: BadgeDragSurface?
-    private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String, panel: [UUID]?)?
-    private var appearanceObservation: NSKeyValueObservation?
+    var button: NSStatusBarButton? { statusItem.button }
     var width: CGFloat { statusItem.length }
     var accessibilityLabel: String? { statusItem.button?.accessibilityLabel() }
     var popoverAccountIDs: [UUID] { panel.rootView.accountIDs }
@@ -120,12 +118,6 @@ final class StatusBarController {
         groupID = key
         self.positionID = positionID ?? key
         panel = MenuBarPanel(rootView: GroupPanelRoot(accountIDs: [], groupID: key, store: store))
-        defer {
-            // Wallpaper or theme changes flip the menu bar between light and dark.
-            appearanceObservation = statusItem.button?.observe(\.effectiveAppearance) { [weak self] _, _ in
-                Task { @MainActor in self?.reapply() }
-            }
-        }
         // A Claude Code result line is cleared once a panel that showed its account closes.
         panel.onClose = { [weak self] in
             guard let self else { return }
@@ -158,11 +150,10 @@ final class StatusBarController {
     // the accounts the lines draw.
     func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = String(localized: "Group"),
                panel listed: [UUID]? = nil) {
-        self.entries = entries
-        lastApplied = (config, explicitRows, name, listed)
-        let image = DisplayStatusRenderer.render(entries: entries, config: config,
-            height: max(18, NSStatusBar.system.thickness - 2), scale: statusItem.button?.window?.backingScaleFactor ?? 2, explicitRows: explicitRows,
-            appearance: statusItem.button?.effectiveAppearance)
+        // The picture follows whatever appearance draws it, so a menu bar that turns light or dark, and the copies on
+        // other screens' menu bars, need no new picture.
+        let image = DisplayStatusRenderer.adaptiveImage(entries: entries, config: config,
+            height: max(18, NSStatusBar.system.thickness - 2), scale: statusItem.button?.window?.backingScaleFactor ?? 2, explicitRows: explicitRows)
         statusItem.length = image.size.width
         statusItem.button?.image = image
         dragSurface?.badgeImage = image
@@ -181,11 +172,6 @@ final class StatusBarController {
         if panel.rootView.accountIDs != shown {
             panel.rootView = GroupPanelRoot(accountIDs: shown, groupID: groupID, store: store, openings: panel.rootView.openings)
         }
-    }
-    // Draws the item again for the menu bar's new appearance, with the panel it had.
-    func reapply() {
-        guard let lastApplied else { return }
-        apply(entries, config: lastApplied.config, explicitRows: lastApplied.explicitRows, name: lastApplied.name, panel: lastApplied.panel)
     }
     func remove() { panel.close(); NSStatusBar.system.removeStatusItem(statusItem) }
     @objc private func toggle(_ sender: AnyObject?) {
@@ -246,6 +232,35 @@ enum DisplayStatusRenderer {
 
     static func render(entry: MenuBarEntry, config: DisplayConfiguration, height: CGFloat = 22, scale: CGFloat = 2) -> NSImage {
         render(entries: [entry], config: config, height: height, scale: scale)
+    }
+    // The status item's picture, drawn for the appearance that draws it. A wallpaper or theme change flips the menu bar
+    // between light and dark, and with a menu bar on each screen AppKit draws the copies on the other screens by giving
+    // the button each screen's appearance in turn. Drawing whatever appearance is current serves all of them without
+    // watching the button: drawing the picture again from such a watch made AppKit copy it to the screens again, which
+    // changed the appearance again, and the item redrew without end (one core at 100% with several screens).
+    static func adaptiveImage(entries: [MenuBarEntry], config: DisplayConfiguration, height: CGFloat, scale: CGFloat,
+                              explicitRows: Bool) -> NSImage {
+        let current = NSAppearance.currentDrawing()
+        let first = render(entries: entries, config: config, height: height, scale: scale, explicitRows: explicitRows, appearance: current)
+        var drawn: [NSAppearance.Name: NSImage] = [current.name: first]
+        func picture(for appearance: NSAppearance) -> NSImage {
+            if let picture = drawn[appearance.name] { return picture }
+            let picture = render(entries: entries, config: config, height: height, scale: scale, explicitRows: explicitRows, appearance: appearance)
+            drawn[appearance.name] = picture
+            return picture
+        }
+        // Light and dark pictures have the same size.
+        let image = NSImage(size: first.size, flipped: false) { rect in
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { picture(for: NSAppearance.currentDrawing()).draw(in: rect) }
+            } else {
+                first.draw(in: rect)
+            }
+            return true
+        }
+        // Drawn afresh each time, so a cached picture never shows one screen's appearance on another.
+        image.cacheMode = .never
+        return image
     }
     static func render(entries: [MenuBarEntry], config: DisplayConfiguration, height: CGFloat = 22, scale: CGFloat = 2, explicitRows: Bool = false,
                        appearance: NSAppearance? = nil) -> NSImage {

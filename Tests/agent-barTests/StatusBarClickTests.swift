@@ -183,13 +183,19 @@ struct StatusBarClickTests {
         store.updateDisplay { $0.setVisible(c.id, false) }
         try await waitFor { coordinator.popoverAccountIDs(for: bench.id) == [b.id] }
 
-        // Drawing the item again for a menu bar that turned light or dark keeps the list.
+        // A menu bar that turns light or dark, as AppKit also makes it while copying the item to other screens' menu bars,
+        // keeps the list and the picture: the picture draws itself for the appearance, so nothing is drawn again, which
+        // would make AppKit copy the item and change its appearance again, round and round.
         let controller = StatusBarController(key: bench.id, store: store)
         defer { controller.remove() }
         let group = try #require(store.displayConfiguration.effectiveLayouts.first { $0.id == bench.id })
         controller.apply(store.entries(for: group), config: group.renderingConfiguration(store.displayConfiguration), explicitRows: true,
                          name: group.name, panel: store.panelAccountIDs(for: group))
-        controller.reapply()
+        let button = try #require(controller.button)
+        let picture = try #require(button.image)
+        for name in [NSAppearance.Name.darkAqua, .aqua, .darkAqua, .aqua] { button.appearance = NSAppearance(named: name) }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(button.image === picture)
         #expect(controller.popoverAccountIDs == [b.id])
         // Its item names the group's accounts instead of offering to add a line, since a click opens the list.
         #expect(controller.accessibilityLabel == "Bench · 1 account")

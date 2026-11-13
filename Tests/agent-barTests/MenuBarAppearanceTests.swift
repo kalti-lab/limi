@@ -61,6 +61,34 @@ struct MenuBarAppearanceTests {
         }
     }
 
+    // The status item's one picture draws dark text where the menu bar is light and light text where it is dark, at the
+    // size the renderer gives both.
+    @Test func statusItemPictureFollowsTheAppearanceThatDrawsIt() throws {
+        let light = try #require(NSAppearance(named: .aqua))
+        let dark = try #require(NSAppearance(named: .darkAqua))
+        var group = MenuBarLayout(name: "Team", style: .bars)
+        group.badgeMode = .common; group.commonBadgeText = "AI"
+        let config = group.renderingConfiguration(DisplayConfiguration())
+        let image = DisplayStatusRenderer.adaptiveImage(entries: entries(), config: config, height: 22, scale: 2, explicitRows: true)
+        #expect(image.size == DisplayStatusRenderer.render(entries: entries(), config: config, explicitRows: true, appearance: light).size)
+        func drawn(_ appearance: NSAppearance) throws -> NSImage {
+            let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(image.size.width * 2), pixelsHigh: Int(image.size.height * 2),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+            rep.size = image.size
+            NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            appearance.performAsCurrentDrawingAppearance { image.draw(in: NSRect(origin: .zero, size: image.size)) }
+            NSGraphicsContext.restoreGraphicsState()
+            let picture = NSImage(size: image.size); picture.addRepresentation(rep)
+            return picture
+        }
+        // Light, dark and light again: one appearance's picture never stays for the next.
+        let onLight = try drawn(light), onDark = try drawn(dark), lightAgain = try drawn(light)
+        #expect(opaquePixels(onLight, dark: false) > opaquePixels(onDark, dark: false), "no dark text on a light menu bar")
+        #expect(opaquePixels(onDark, dark: true) > opaquePixels(onLight, dark: true), "no light text on a dark menu bar")
+        #expect(opaquePixels(lightAgain, dark: false) == opaquePixels(onLight, dark: false))
+        #expect(opaquePixels(lightAgain, dark: true) == opaquePixels(onLight, dark: true))
+    }
+
     @Test func gaugeSymbolStepsWithUsage() {
         #expect(DisplayStatusRenderer.gaugeSymbolName(for: nil) == "gauge.with.dots.needle.0percent")
         #expect(DisplayStatusRenderer.gaugeSymbolName(for: 0.19) == "gauge.with.dots.needle.0percent")
