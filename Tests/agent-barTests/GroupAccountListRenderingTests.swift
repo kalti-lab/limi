@@ -261,10 +261,11 @@ struct GroupAccountListRenderingTests {
         let accounts = claude + [codex]
         var registry = AccountRegistry(accounts: f.accounts + [codex]); registry.repairRepresentatives()
         try f.files.write(registry, to: f.files.registryURL)
-        // The most used is not the soonest to reset. Codex is read beside Claude, so a round can hold it back alone.
+        // The soonest 5 hours to refill is not the soonest week. Codex is read beside Claude, so a round can hold it back
+        // alone.
         let usage: [UUID: ProviderSnapshot] = [
-            claude[0].id: Self.reading(.claude, 20, resets: 4), claude[1].id: Self.reading(.claude, 60, resets: 1),
-            claude[2].id: Self.reading(.claude, 40, resets: 3), codex.id: Self.reading(.codex, 90, resets: 2),
+            claude[0].id: Self.reading(.claude, 20, fiveHour: 4, week: 1), claude[1].id: Self.reading(.claude, 60, fiveHour: 1, week: 5),
+            claude[2].id: Self.reading(.claude, 40, fiveHour: 3, week: 3), codex.id: Self.reading(.codex, 90, fiveHour: 2, week: 2),
         ]
         let gate = Gate()
         let suite = "group-list-sort-\(UUID())", defaults = UserDefaults(suiteName: suite)!
@@ -278,7 +279,7 @@ struct GroupAccountListRenderingTests {
         let ids = accounts.map(\.id)
         let group = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: ids[0], metricID: "5h")], memberIDs: ids)
         store.updateDisplay { $0.editLayouts { $0 = [group] } }
-        store.setListSort(.usage, for: group.id)
+        store.setListSort(.fiveHourReset, for: group.id)
 
         // The panel, opened once, telling the test the order of its rows.
         let rows = ListRows()
@@ -289,7 +290,7 @@ struct GroupAccountListRenderingTests {
         let window = ListWindow(host: host, height: 640)
         defer { window.close() }
         func shown() -> String { rows.order.map { id in accounts.first { $0.id == id }?.name ?? "?" }.joined(separator: " ") }
-        // Nothing read yet: usage has nothing to go by, so the rows keep the group's order.
+        // Nothing read yet: no reset to go by, so the rows keep the group's order.
         try #require(await until { shown() == "cl cl2 cl3 cx" }, "\(shown())")
 
         // A round reads Claude while Codex waits. The new numbers would sort the rows, but the list keeps them still.
@@ -303,9 +304,9 @@ struct GroupAccountListRenderingTests {
         try #require(await until { shown() == "cl2 cl3 cl cx" }, "\(shown())")
         // The round ends with CX read: the rows sort again.
         gate.open()
-        try #require(await until { !store.isRefreshing && shown() == "cx cl2 cl3 cl" }, "\(shown())")
+        try #require(await until { !store.isRefreshing && shown() == "cl2 cx cl3 cl" }, "\(shown())")
         // Another sort puts them in its order at once, and Manual back in the group's own.
-        for (sort, order) in [(GroupListSort.resetTime, "cl2 cx cl3 cl"), (.usage, "cx cl2 cl3 cl")] {
+        for (sort, order) in [(GroupListSort.weeklyReset, "cl cx cl3 cl2"), (.fiveHourReset, "cl2 cx cl3 cl")] {
             store.setListSort(sort, for: group.id)
             try #require(await until { shown() == order }, "\(sort): \(shown())")
             for (name, appearance) in Self.appearances {
@@ -318,7 +319,7 @@ struct GroupAccountListRenderingTests {
 
         // The header's sort button names the sort in use: pictures of the list under each sort differ in the header only
         // in its right half, where the button stands before the refresh and settings buttons.
-        let pictures = try [GroupListSort.manual, .usage, .resetTime].map { sort in
+        let pictures = try [GroupListSort.manual, .fiveHourReset, .weeklyReset].map { sort in
             store.setListSort(sort, for: group.id)
             return try picture(GroupAccountListView(accountIDs: ids, groupID: group.id).environmentObject(store)).bitmap
         }
@@ -329,8 +330,8 @@ struct GroupAccountListRenderingTests {
         }
     }
 
-    // Only the group's own order is set by hand. Sorted by usage, a row dragged onto another stays where it was, and a
-    // click on Use still uses the account.
+    // Only the group's own order is set by hand. Sorted by 5-hour reset, a row dragged onto another stays where it was,
+    // and a click on Use still uses the account.
     @Test func aSortedListStartsNoDrag() async throws {
         let f = try SwitchFixture()
         let accounts = (1...7).map { f.addAccount("cl\($0)") }
@@ -347,10 +348,10 @@ struct GroupAccountListRenderingTests {
         let ids = accounts.map(\.id)
         let group = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: ids[0], metricID: "5h")], memberIDs: ids)
         store.updateDisplay { $0.editLayouts { $0 = [group] } }
-        store.setListSort(.usage, for: group.id)
+        store.setListSort(.fiveHourReset, for: group.id)
         func order() -> String { (store.groupMembers(group.id) ?? []).map { id in accounts.first { $0.id == id }?.name ?? "?" }.joined(separator: " ") }
 
-        // Nothing read yet, so usage keeps the group's order. The pointer rests on CL1, the first row, so its Use shows.
+        // Nothing read yet, so the sort keeps the group's order. The pointer rests on CL1, the first row, so its Use shows.
         let view = GroupAccountListView(accountIDs: ids, groupID: group.id, hovered: ids[0], stepAnimation: nil).environmentObject(store)
         let window = ListWindow(view, height: 360)
         defer { window.close() }
@@ -394,10 +395,12 @@ struct GroupAccountListRenderingTests {
                          planName: plan, sourceDescription: "Fixture", note: note, isStale: stale, requiresLogin: login, limitGroups: groups)
     }
 
-    // A reading with the 5-hour limit alone, `percent` used and resetting in `hours`.
-    private static func reading(_ provider: ProviderKind, _ percent: Int, resets hours: Double) -> ProviderSnapshot {
-        ProviderSnapshot(provider: provider, updatedAt: now.addingTimeInterval(-60), fiveHour: window(percent, hours: hours), weekly: nil,
-                         modelWeeklies: [], planName: nil, sourceDescription: "Fixture", note: nil, isStale: false, requiresLogin: false)
+    // A reading with the 5-hour limit `percent` used and refilling in `hours`, and the weekly limit half that used and
+    // refilling in `days`.
+    private static func reading(_ provider: ProviderKind, _ percent: Int, fiveHour hours: Double, week days: Double) -> ProviderSnapshot {
+        ProviderSnapshot(provider: provider, updatedAt: now.addingTimeInterval(-60), fiveHour: window(percent, hours: hours),
+                         weekly: window(percent / 2, hours: days * 24), modelWeeklies: [], planName: nil, sourceDescription: "Fixture",
+                         note: nil, isStale: false, requiresLogin: false)
     }
 
     private static func window(_ used: Int?, hours: Double) -> WindowSummary? {

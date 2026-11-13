@@ -4,10 +4,10 @@ import Foundation
 enum GroupListSort: String, Codable, CaseIterable, Identifiable {
     /// The group's own order, which dragging its chips in Settings or the rows of its list sets.
     case manual
-    /// The account nearest a limit first: by the highest percentage among the limits its row shows.
-    case usage
-    /// The account with a limit that refills first: by the soonest reset among the limits its row shows.
-    case resetTime
+    /// The account whose 5-hour limit refills first.
+    case fiveHourReset
+    /// The account whose weekly limit refills first: the service's own week, not a model's.
+    case weeklyReset
 
     var id: String { rawValue }
 
@@ -17,41 +17,43 @@ enum GroupListSort: String, Codable, CaseIterable, Identifiable {
         self = value.flatMap(Self.init(rawValue:)) ?? .manual
     }
 
-    /// `ids`, given in the group's own order, in this order, by what each account's row shows (`snapshot`, nil for nothing).
-    /// Ties keep the group's order. Accounts with nothing to go by, a row of "--" or one without a reset time, go last,
-    /// in the group's order.
+    /// `ids`, given in the group's own order, in this order, by what each account's row shows (`snapshot`, nil for nothing):
+    /// the soonest reset first. Ties keep the group's order. Accounts with nothing to go by, no value for the limit or no
+    /// reset time for it, go last, in the group's order.
     func ordered(_ ids: [UUID], now: Date = .now, snapshot: (UUID) -> ProviderSnapshot?) -> [UUID] {
-        switch self {
-        case .manual: return ids
-        case .usage: return Self.ordered(ids, descending: true) { snapshot($0).flatMap(Self.highestPercent) }
-        case .resetTime: return Self.ordered(ids, descending: false) { snapshot($0).flatMap { Self.soonestReset($0, now: now) } }
+        guard self != .manual else { return ids }
+        let keyed = ids.enumerated().map { place, id in
+            (place: place, id: id, reset: snapshot(id).flatMap { soonestReset($0, now: now) })
         }
-    }
-
-    /// The highest percentage among the limits a row shows, whole as the row shows it; nil when it shows none ("--").
-    static func highestPercent(_ snapshot: ProviderSnapshot) -> Int? {
-        DisplayMetric.reported(snapshot).compactMap { $0.window?.utilization }.map { Int(($0 * 100).rounded()) }.max()
-    }
-
-    /// The soonest reset among the limits a row shows, to the nearest minute. One already past counts as `now`, since the
-    /// row says "Resets soon" for any of them. Nil when the row shows no reset time.
-    static func soonestReset(_ snapshot: ProviderSnapshot, now: Date) -> Date? {
-        guard let soonest = DisplayMetric.reported(snapshot).compactMap({ $0.window?.resetAt }).min() else { return nil }
-        let minutes = (max(soonest, now).timeIntervalSinceReferenceDate / 60).rounded()
-        return Date(timeIntervalSinceReferenceDate: minutes * 60)
-    }
-
-    // Accounts with a key first, by key; equal keys, and the accounts without one, keep their places.
-    private static func ordered<Key: Comparable>(_ ids: [UUID], descending: Bool, key: (UUID) -> Key?) -> [UUID] {
-        let keyed = ids.enumerated().map { (place: $0.offset, id: $0.element, key: key($0.element)) }
         return keyed.sorted { a, b in
-            switch (a.key, b.key) {
-            case let (x?, y?) where x != y: return descending ? x > y : x < y
+            switch (a.reset, b.reset) {
+            case let (x?, y?) where x != y: return x < y
             case (_?, nil): return true
             case (nil, _?): return false
             default: return a.place < b.place
             }
         }.map(\.id)
+    }
+
+    /// The soonest reset, to the nearest minute, among the row's limits this sort goes by: its 5-hour or its weekly one, or
+    /// for Antigravity one of each per model group. One already past counts as `now`, since the row says "Resets soon" for
+    /// any of them. Nil for manual, and when the row shows no such limit or no reset time for it.
+    func soonestReset(_ snapshot: ProviderSnapshot, now: Date) -> Date? {
+        guard let soonest = DisplayMetric.reported(snapshot).filter(goesBy).compactMap({ $0.window?.resetAt }).min() else { return nil }
+        let minutes = (max(soonest, now).timeIntervalSinceReferenceDate / 60).rounded()
+        return Date(timeIntervalSinceReferenceDate: minutes * 60)
+    }
+
+    // By the ids `DisplayMetric.all` gives: "5h" and "weekly", a model group's "…:5h" and "…:weekly". A model's own week,
+    // "model:" and its name, counts for neither.
+    private func goesBy(_ metric: DisplayMetric) -> Bool {
+        let window: String
+        switch self {
+        case .manual: return false
+        case .fiveHourReset: window = "5h"
+        case .weeklyReset: window = "weekly"
+        }
+        return metric.id == window || metric.id.hasSuffix(":" + window)
     }
 }
 

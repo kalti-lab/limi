@@ -2,7 +2,8 @@ import Foundation
 import Testing
 @testable import agent_bar
 
-// A group's list in Manual, Usage or Reset time order, by what each account's row shows, and each group remembering its own.
+// A group's list in Manual, 5-hour reset or Weekly reset order, by what each account's row shows, and each group
+// remembering its own.
 @MainActor
 struct GroupListSortTests {
     @Test func eachSortOrdersTheRowsByWhatTheyShow() {
@@ -11,97 +12,118 @@ struct GroupListSortTests {
             a: snapshot(fiveHour: window(30, resetsIn: 120), weekly: window(50, resetsIn: 4_320)),
             b: snapshot(fiveHour: window(80, resetsIn: 200), weekly: window(20, resetsIn: 4_000)),
             c: snapshot(.codex, fiveHour: window(10, resetsIn: 30), weekly: window(60, resetsIn: 5_000)),
-            d: snapshot(weekly: window(95, resetsIn: 10_000)),
+            d: snapshot(fiveHour: window(5, resetsIn: 250), weekly: window(95, resetsIn: 1_000)),
         ]
         let manual = [a, b, c, d]
-        // Usage: each row's highest limit, highest first. Reset time: each row's soonest reset, soonest first.
-        #expect(GroupListSort.usage.ordered(manual, now: now) { rows[$0] } == [d, b, c, a])
-        #expect(GroupListSort.resetTime.ordered(manual, now: now) { rows[$0] } == [c, a, b, d])
+        // Each row's 5-hour limit, soonest to refill first; then each row's weekly limit, which puts them otherwise.
+        // How much is used plays no part.
+        #expect(GroupListSort.fiveHourReset.ordered(manual, now: now) { rows[$0] } == [c, a, b, d])
+        #expect(GroupListSort.weeklyReset.ordered(manual, now: now) { rows[$0] } == [d, b, a, c])
         // Manual: the group's own order, whatever the rows show.
         #expect(GroupListSort.manual.ordered(manual, now: now) { rows[$0] } == manual)
         #expect(GroupListSort.manual.ordered([d, c, b, a], now: now) { rows[$0] } == [d, c, b, a])
+        #expect(GroupListSort.manual.soonestReset(rows[a]!, now: now) == nil)
+        // The menu lists them in this order, and a group saves them by these names.
+        #expect(GroupListSort.allCases.map(\.rawValue) == ["manual", "fiveHourReset", "weeklyReset"])
     }
 
-    @Test func aModelsWeeklyLimitCountsWhenItIsTheHighest() {
-        let a = UUID(), b = UUID()
-        // A's Fable week is both its highest limit and its soonest reset.
+    @Test func aModelsOwnWeekCountsForNeither() {
+        let a = UUID(), b = UUID(), c = UUID()
         let rows: [UUID: ProviderSnapshot] = [
+            // A's Fable week refills before anything else.
             a: snapshot(fiveHour: window(40, resetsIn: 300), weekly: window(50, resetsIn: 6_000),
                         models: [ModelWeeklySummary(label: "Fable", window: window(97, resetsIn: 50))]),
-            b: snapshot(fiveHour: window(90, resetsIn: 100), weekly: window(30, resetsIn: 7_000)),
+            b: snapshot(fiveHour: window(90, resetsIn: 100), weekly: window(30, resetsIn: 5_000)),
+            // C has a model's week and no week of its own.
+            c: snapshot(fiveHour: window(10, resetsIn: 200), models: [ModelWeeklySummary(label: "Opus", window: window(70, resetsIn: 10))]),
         ]
-        #expect(GroupListSort.highestPercent(rows[a]!) == 97)
-        #expect(GroupListSort.usage.ordered([b, a], now: now) { rows[$0] } == [a, b])
-        #expect(GroupListSort.resetTime.ordered([b, a], now: now) { rows[$0] } == [a, b])
-        // Without it, A's highest is its week, below B's 5 hours, and B resets first.
-        var plain = rows
-        plain[a] = snapshot(fiveHour: window(40, resetsIn: 300), weekly: window(50, resetsIn: 6_000))
-        #expect(GroupListSort.usage.ordered([b, a], now: now) { plain[$0] } == [b, a])
-        #expect(GroupListSort.resetTime.ordered([b, a], now: now) { plain[$0] } == [b, a])
+        #expect(GroupListSort.fiveHourReset.soonestReset(rows[a]!, now: now) == now.addingTimeInterval(300 * 60))
+        #expect(GroupListSort.weeklyReset.soonestReset(rows[a]!, now: now) == now.addingTimeInterval(6_000 * 60))
+        #expect(GroupListSort.weeklyReset.soonestReset(rows[c]!, now: now) == nil)
+        #expect(GroupListSort.fiveHourReset.ordered([a, b, c], now: now) { rows[$0] } == [b, c, a])
+        #expect(GroupListSort.weeklyReset.ordered([c, a, b], now: now) { rows[$0] } == [b, a, c])
+    }
+
+    // Antigravity has a 5-hour and a weekly limit for each model group: the soonest of each kind counts.
+    @Test func antigravityGoesByItsSoonestModelGroup() {
+        let agy = UUID(), claude = UUID()
+        let rows: [UUID: ProviderSnapshot] = [
+            agy: antigravity([("Gemini", window(20, resetsIn: 100), window(30, resetsIn: 2_000)),
+                              ("Claude/GPT", window(85, resetsIn: 50), window(10, resetsIn: 3_000))]),
+            claude: snapshot(fiveHour: window(60, resetsIn: 70), weekly: window(40, resetsIn: 2_500)),
+        ]
+        // The second group's 5 hours and the first group's week refill before Claude's.
+        #expect(GroupListSort.fiveHourReset.ordered([claude, agy], now: now) { rows[$0] } == [agy, claude])
+        #expect(GroupListSort.weeklyReset.ordered([claude, agy], now: now) { rows[$0] } == [agy, claude])
+        // A group without a value has nothing to go by; another group's limit still counts.
+        let half = antigravity([("Gemini", window(20, resetsIn: 100), nil), ("Claude/GPT", nil, window(10, resetsIn: 3_000))])
+        #expect(GroupListSort.fiveHourReset.soonestReset(half, now: now) == now.addingTimeInterval(100 * 60))
+        #expect(GroupListSort.weeklyReset.soonestReset(half, now: now) == now.addingTimeInterval(3_000 * 60))
     }
 
     @Test func tiesKeepTheGroupsOrder() {
         let a = UUID(), b = UUID(), c = UUID(), d = UUID(), e = UUID()
+        let week = window(40, resetsIn: 3_000)
         let rows: [UUID: ProviderSnapshot] = [
-            // 44.9%, 45.1% and 45% all read 45%. Ten seconds after and before the hour read the same minute.
-            a: snapshot(weekly: window(44.9, resetsIn: 60 + 10.0 / 60)),
-            b: snapshot(weekly: window(45.1, resetsIn: 60 - 10.0 / 60)),
-            c: snapshot(weekly: window(45, resetsIn: 59)),
-            // Resets already past all read "Resets soon", however long ago.
-            d: snapshot(weekly: window(46, resetsIn: -5)),
-            e: snapshot(weekly: window(20, resetsIn: -90)),
+            // Ten seconds after and before the hour read the same minute.
+            a: snapshot(fiveHour: window(10, resetsIn: 60 + 10.0 / 60), weekly: week),
+            b: snapshot(fiveHour: window(90, resetsIn: 60 - 10.0 / 60), weekly: week),
+            c: snapshot(fiveHour: window(50, resetsIn: 59), weekly: week),
+            // Resets already past all read "Resets soon", however long ago: now, ahead of every other.
+            d: snapshot(fiveHour: window(46, resetsIn: -5), weekly: week),
+            e: snapshot(fiveHour: window(20, resetsIn: -90), weekly: window(40, resetsIn: -1)),
         ]
-        #expect(GroupListSort.usage.ordered([a, b, c, d, e], now: now) { rows[$0] } == [d, a, b, c, e])
-        #expect(GroupListSort.resetTime.ordered([a, b, c, d, e], now: now) { rows[$0] } == [d, e, c, a, b])
+        #expect(GroupListSort.fiveHourReset.soonestReset(rows[e]!, now: now) == now)
+        #expect(GroupListSort.fiveHourReset.ordered([a, b, c, d, e], now: now) { rows[$0] } == [d, e, c, a, b])
+        // E's week is past; the others' weeks refill in the same minute.
+        #expect(GroupListSort.weeklyReset.ordered([a, b, c, d, e], now: now) { rows[$0] } == [e, a, b, c, d])
         // The same rows in another order keep that order among the ties.
-        #expect(GroupListSort.usage.ordered([c, b, a, e, d], now: now) { rows[$0] } == [d, c, b, a, e])
-        #expect(GroupListSort.resetTime.ordered([c, b, a, e, d], now: now) { rows[$0] } == [e, d, c, b, a])
+        #expect(GroupListSort.fiveHourReset.ordered([c, b, a, e, d], now: now) { rows[$0] } == [e, d, c, b, a])
+        #expect(GroupListSort.weeklyReset.ordered([c, b, a, e, d], now: now) { rows[$0] } == [e, c, b, a, d])
     }
 
-    @Test func rowsWithNothingToReadGoLast() {
-        let a = UUID(), b = UUID(), c = UUID(), d = UUID(), e = UUID(), f = UUID()
+    @Test func rowsWithNothingToGoByGoLast() {
+        let a = UUID(), b = UUID(), c = UUID(), d = UUID(), e = UUID(), f = UUID(), g = UUID()
         let rows: [UUID: ProviderSnapshot] = [
             a: .placeholder(for: .claude), // Nothing read yet: "--".
-            b: snapshot(weekly: window(20, resetsIn: 100)),
+            b: snapshot(fiveHour: window(20, resetsIn: 100), weekly: window(5, resetsIn: 4_000)),
             c: ProviderSnapshot.placeholder(for: .codex).failed("Codex did not answer."), // Could not read: "--".
             // D has no row at all.
-            e: snapshot(weekly: window(10)), // A value, without a reset time.
-            f: snapshot(fiveHour: window(70, resetsIn: 400), stale: true), // Cached values still show, dimmed.
+            e: snapshot(.codex, weekly: window(10, resetsIn: 2_000)), // A weekly limit alone, without 5 hours.
+            // Cached values still show, dimmed. Its week has a value without a reset time.
+            f: snapshot(fiveHour: window(70, resetsIn: 400), weekly: window(30), stale: true),
+            g: snapshot(fiveHour: window(10), weekly: window(50, resetsIn: 3_000)), // 5 hours without a reset time.
         ]
-        #expect(GroupListSort.highestPercent(rows[a]!) == nil && GroupListSort.highestPercent(rows[c]!) == nil)
-        #expect(GroupListSort.highestPercent(rows[e]!) == 10 && GroupListSort.soonestReset(rows[e]!, now: now) == nil)
-        let manual = [a, b, c, d, e, f]
-        #expect(GroupListSort.usage.ordered(manual, now: now) { rows[$0] } == [f, b, e, a, c, d])
-        // With no reset time to go by, a row with values goes last too.
-        #expect(GroupListSort.resetTime.ordered(manual, now: now) { rows[$0] } == [b, f, a, c, d, e])
+        let manual = [a, b, c, d, e, f, g]
+        #expect(GroupListSort.fiveHourReset.ordered(manual, now: now) { rows[$0] } == [b, f, a, c, d, e, g])
+        #expect(GroupListSort.weeklyReset.ordered(manual, now: now) { rows[$0] } == [e, g, b, a, c, d, f])
     }
 
-    // The sort reads the cells a row draws (`GroupAccountRow.cellMetrics`), and their percentages as the row writes them.
+    // The sort reads the cells a row draws (`GroupAccountRow.cellMetrics`): the ones it names "5h" or a model group's
+    // "… 5h", and "Week" or "… wk".
     @Test func theSortGoesByTheRowsOwnCells() {
-        let antigravity = ProviderSnapshot(provider: .antigravity, updatedAt: now, fiveHour: window(20, resetsIn: 100),
-            weekly: window(30, resetsIn: 2_000), modelWeeklies: [], planName: nil, sourceDescription: "Test", note: nil,
-            isStale: false, requiresLogin: false, limitGroups: [
-                LimitGroupSummary(label: "Gemini", fiveHour: window(20, resetsIn: 100), weekly: window(30, resetsIn: 2_000)),
-                LimitGroupSummary(label: "Claude/GPT", fiveHour: window(85.4, resetsIn: 50), weekly: nil)])
         let snapshots = [
             snapshot(fiveHour: window(12, resetsIn: 30), weekly: window(64.6, resetsIn: 900),
                      models: [ModelWeeklySummary(label: "Opus", window: window(70, resetsIn: 800))]),
             snapshot(.codex, fiveHour: window(99.5), weekly: window(3, resetsIn: 20)),
-            antigravity,
+            antigravity([("Gemini", window(20, resetsIn: 100), window(30, resetsIn: 2_000)),
+                         ("Claude/GPT", window(85.4, resetsIn: 50), nil)]),
             .placeholder(for: .claude),
             ProviderSnapshot.placeholder(for: .codex).failed("Codex did not answer."),
         ]
         for snapshot in snapshots {
             let cells = GroupAccountRow.cellMetrics(snapshot).filter { $0.window != nil }
             #expect(DisplayMetric.reported(snapshot).map(\.id) == cells.map(\.id))
-            let highest = cells.compactMap { $0.window?.utilization }.max()
-            #expect(GroupListSort.highestPercent(snapshot).map { "\($0)%" } == highest.map { TokenFormatters.percentageString(for: $0) })
+            func soonest(_ named: (String) -> Bool) -> Date? {
+                cells.filter { named($0.cellTitle) }.compactMap { $0.window?.resetAt }.min()
+            }
             // Every reset here is a whole number of minutes ahead, so it reads exactly as the cell has it.
-            #expect(GroupListSort.soonestReset(snapshot, now: now) == cells.compactMap { $0.window?.resetAt }.min())
+            #expect(GroupListSort.fiveHourReset.soonestReset(snapshot, now: now) == soonest { $0 == "5h" || $0.hasSuffix(" 5h") })
+            #expect(GroupListSort.weeklyReset.soonestReset(snapshot, now: now) == soonest { $0 == "Week" || $0.hasSuffix(" wk") })
         }
-        #expect(snapshots.map { GroupListSort.highestPercent($0) } == [70, 100, 85, nil, nil])
-        let minutes: [Double?] = [30, 20, 50, nil, nil]
-        #expect(snapshots.map { GroupListSort.soonestReset($0, now: now) } == minutes.map { $0.map { now.addingTimeInterval($0 * 60) } })
+        func minutes(_ values: [Double?]) -> [Date?] { values.map { $0.map { now.addingTimeInterval($0 * 60) } } }
+        #expect(snapshots.map { GroupListSort.fiveHourReset.soonestReset($0, now: now) } == minutes([30, nil, 50, nil, nil]))
+        #expect(snapshots.map { GroupListSort.weeklyReset.soonestReset($0, now: now) } == minutes([900, 20, 2_000, nil, nil]))
     }
 
     @Test func aGroupReadsAndSavesItsSort() throws {
@@ -111,11 +133,13 @@ struct GroupListSortTests {
         let layout = try #require(old.layouts?.first)
         #expect(layout.listSort == nil && layout.effectiveListSort == .manual && old.valid)
         #expect(!String(decoding: try JSONEncoder().encode(old), as: UTF8.self).contains("listSort"))
-        // Each choice reads back as it was saved.
+        // Each choice reads back as it was saved, by its name.
         for sort in GroupListSort.allCases {
             var config = old
             config.layouts?[0].listSort = sort
-            let read = try JSONDecoder().decode(DisplayConfiguration.self, from: JSONEncoder().encode(config))
+            let data = try JSONEncoder().encode(config)
+            #expect(String(decoding: data, as: UTF8.self).contains("\"listSort\":\"\(sort.rawValue)\""))
+            let read = try JSONDecoder().decode(DisplayConfiguration.self, from: data)
             #expect(read.layouts == config.layouts && read.layouts?.first?.effectiveListSort == sort)
         }
         // One this version does not know, saved by a later version or broken, reads as manual; the rest of the file still reads.
@@ -133,11 +157,11 @@ struct GroupListSortTests {
         #expect(f.store.listSort(for: one.id) == .manual && f.store.listSort(for: two.id) == .manual)
         #expect(f.store.listSort(for: UUID()) == nil)
 
-        f.store.setListSort(.usage, for: one.id)
-        f.store.setListSort(.resetTime, for: two.id)
-        #expect(f.store.listSort(for: one.id) == .usage && f.store.listSort(for: two.id) == .resetTime)
+        f.store.setListSort(.fiveHourReset, for: one.id)
+        f.store.setListSort(.weeklyReset, for: two.id)
+        #expect(f.store.listSort(for: one.id) == .fiveHourReset && f.store.listSort(for: two.id) == .weeklyReset)
         let reopened = f.reopened(); defer { reopened.shutdown() }
-        #expect(reopened.listSort(for: one.id) == .usage && reopened.listSort(for: two.id) == .resetTime)
+        #expect(reopened.listSort(for: one.id) == .fiveHourReset && reopened.listSort(for: two.id) == .weeklyReset)
         // Nothing else about the groups changed.
         #expect(reopened.displayConfiguration.layouts?.map(\.memberIDs) == [one.memberIDs, nil])
         #expect(reopened.displayConfiguration.layouts?.map(\.name) == ["One", "Two"])
@@ -146,10 +170,10 @@ struct GroupListSortTests {
         f.store.setListSort(.manual, for: one.id)
         #expect(f.store.displayConfiguration.layouts?.first?.listSort == nil)
         let again = f.reopened(); defer { again.shutdown() }
-        #expect(again.listSort(for: one.id) == .manual && again.listSort(for: two.id) == .resetTime)
+        #expect(again.listSort(for: one.id) == .manual && again.listSort(for: two.id) == .weeklyReset)
         // A group that does not exist changes nothing.
         let before = f.store.displayConfiguration
-        f.store.setListSort(.usage, for: UUID())
+        f.store.setListSort(.fiveHourReset, for: UUID())
         #expect(f.store.displayConfiguration == before)
     }
 
@@ -163,10 +187,10 @@ struct GroupListSortTests {
         f.store.setListSort(.manual, for: groups[0].id)
         #expect(f.store.displayConfiguration.layouts == nil)
         // Another choice saves the groups, and that group alone remembers it.
-        f.store.setListSort(.resetTime, for: groups[0].id)
+        f.store.setListSort(.weeklyReset, for: groups[0].id)
         let reopened = f.reopened(); defer { reopened.shutdown() }
         #expect(reopened.displayConfiguration.layouts?.map(\.id) == groups.map(\.id))
-        #expect(groups.map { reopened.listSort(for: $0.id) } == [.resetTime] + Array(repeating: .manual, count: groups.count - 1))
+        #expect(groups.map { reopened.listSort(for: $0.id) } == [.weeklyReset] + Array(repeating: .manual, count: groups.count - 1))
     }
 
     @Test func thePanelListsAGroupsAccountsInItsSort() async throws {
@@ -191,10 +215,11 @@ struct GroupListSortTests {
         let panel = f.store.panelAccountIDs(for: try #require(f.store.displayConfiguration.layouts?.first))
         #expect(panel == [work, personal, side, old].map(\.id))
         #expect(try listed() == panel)
-        f.store.setListSort(.usage, for: group.id)
-        #expect(try listed() == [personal, side, work, old].map(\.id))
-        f.store.setListSort(.resetTime, for: group.id)
+        f.store.setListSort(.fiveHourReset, for: group.id)
         #expect(try listed() == [side, personal, work, old].map(\.id))
+        // Side has no weekly limit, so it joins Old at the bottom, in the group's order.
+        f.store.setListSort(.weeklyReset, for: group.id)
+        #expect(try listed() == [work, personal, side, old].map(\.id))
     }
 }
 
@@ -211,6 +236,13 @@ private func snapshot(_ provider: ProviderKind = .claude, fiveHour: WindowSummar
                       models: [ModelWeeklySummary] = [], stale: Bool = false) -> ProviderSnapshot {
     ProviderSnapshot(provider: provider, updatedAt: now, fiveHour: fiveHour, weekly: weekly, modelWeeklies: models,
                      planName: nil, sourceDescription: "Test", note: nil, isStale: stale, requiresLogin: false)
+}
+
+/// An Antigravity reading: a 5-hour and a weekly limit for each model group, nil where the group has no value.
+private func antigravity(_ groups: [(String, WindowSummary?, WindowSummary?)]) -> ProviderSnapshot {
+    ProviderSnapshot(provider: .antigravity, updatedAt: now, fiveHour: groups.first?.1, weekly: groups.first?.2, modelWeeklies: [],
+                     planName: nil, sourceDescription: "Test", note: nil, isStale: false, requiresLogin: false,
+                     limitGroups: groups.map { LimitGroupSummary(label: $0.0, fiveHour: $0.1, weekly: $0.2) })
 }
 
 private func account(_ provider: ProviderKind, _ name: String) -> UsageAccount {

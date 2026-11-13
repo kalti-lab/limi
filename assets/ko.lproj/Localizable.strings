@@ -32,6 +32,7 @@
 "5-Hour Session" = "5시간 세션";
 "5-hour and weekly limits of your ChatGPT plan" = "ChatGPT 요금제의 5시간·주간 한도";
 "5-hour and weekly limits of your Claude plan" = "Claude 요금제의 5시간·주간 한도";
+"5-hour reset" = "5시간 초기화";
 "5h" = "5시간";
 "A ring with a full-size percentage beside it." = "링 옆에 퍼센트를 크게 보여 줍니다.";
 "Account" = "계정";
@@ -172,7 +173,6 @@
 "Rename" = "이름 변경";
 "Rename Account" = "계정 이름 변경";
 "Rename account" = "계정 이름 변경";
-"Reset time" = "초기화 시간";
 "Resets %@" = "%@ 초기화";
 "Resets in %@" = "%@ 후 초기화";
 "Resets in less than 1m" = "1분 안에 초기화";
@@ -204,6 +204,7 @@
 "Sign-in required. Reconnect this account in Settings › Accounts." = "로그인이 필요합니다. 설정 › 계정에서 이 계정을 다시 연결하세요.";
 "Sort by" = "정렬 기준";
 "Sort the list" = "목록 정렬";
+"Sort: %@" = "정렬: %@";
 "Text Only" = "텍스트만";
 "The Anthropic usage API is rate-limited. Showing the last known good value and retrying automatically." = "Anthropic 사용량 API 요청이 너무 많습니다. 마지막으로 받은 값을 보여 주고 자동으로 다시 시도합니다.";
 "The CLI account changed during the request. Refresh again." = "요청하는 동안 CLI 계정이 바뀌었습니다. 다시 새로 고치세요.";
@@ -231,7 +232,6 @@
 "Unsupported account settings version. The settings file was preserved." = "지원하지 않는 계정 설정 버전입니다. 설정 파일은 그대로 두었습니다.";
 "Untitled" = "이름 없음";
 "Updated %@" = "%@ 업데이트";
-"Usage" = "사용량";
 "Usage line" = "사용량 줄";
 "Usage lines · %lld/%lld" = "사용량 줄 · %lld/%lld";
 "Usage values · %lld" = "사용량 값 · %lld";
@@ -240,6 +240,7 @@
 "Week" = "주간";
 "Weekly" = "주간";
 "Weekly Limit" = "주간 한도";
+"Weekly reset" = "주간 초기화";
 "agy on this Mac isn't signed in. Run agy in Terminal and sign in, then try again." = "이 Mac의 agy에 로그인되어 있지 않습니다. 터미널에서 agy를 실행해 로그인한 다음 다시 시도하세요.";
 "just now" = "방금";
 
