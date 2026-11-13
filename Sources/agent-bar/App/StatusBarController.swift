@@ -21,7 +21,6 @@ final class StatusBarCoordinator {
     func statusItemLength(for id: UUID) -> CGFloat? { controllers[id]?.width }
     func popoverAccountIDs(for id: UUID) -> [UUID]? { controllers[id]?.popoverAccountIDs }
     func popoverGroupID(for id: UUID) -> UUID? { controllers[id]?.popoverGroupID }
-    func popoverMode(for id: UUID) -> GroupPanelMode? { controllers[id]?.popoverMode }
     func positionID(for id: UUID) -> UUID? { controllers[id]?.positionID }
     var groupOrderOnScreen: [UUID] { controllersFromLeftToRight().map(\.popoverGroupID) }
     func removeAll() { controllers.values.forEach { $0.remove() }; controllers.removeAll() }
@@ -81,7 +80,7 @@ final class StatusBarCoordinator {
         }
         for group in groups {
             controllers[group.id]?.apply(store.entries(for: group), config: group.renderingConfiguration(config), explicitRows: true, name: group.name,
-                                         panel: store.groupPanel(for: group))
+                                         panel: store.panelAccountIDs(for: group))
         }
         if !positions.isEmpty {
             store.updateDisplay { config in
@@ -108,13 +107,12 @@ final class StatusBarController {
     private let panel: MenuBarPanel<AccountPopoverRoot>
     private var entries: [MenuBarEntry] = []
     private var dragSurface: BadgeDragSurface?
-    private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String, panel: GroupPanelContent?)?
+    private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String, panel: [UUID]?)?
     private var appearanceObservation: NSKeyValueObservation?
     var width: CGFloat { statusItem.length }
     var accessibilityLabel: String? { statusItem.button?.accessibilityLabel() }
     var popoverAccountIDs: [UUID] { panel.rootView.accountIDs }
     var popoverGroupID: UUID { panel.rootView.groupID }
-    var popoverMode: GroupPanelMode { panel.rootView.mode }
     var screenWidth: CGFloat? { statusItem.button?.window?.screen?.frame.width }
     var screenFrame: NSRect? { statusItem.button?.window?.frame }
     init(key: UUID, store: UsageStore, positionID: UUID? = nil, moveGroup: ((UUID, UUID) -> Bool)? = nil) {
@@ -154,24 +152,24 @@ final class StatusBarController {
         panel.close()
         groupID = id
         dragSurface?.groupID = id
-        panel.rootView = AccountPopoverRoot(mode: .tabs, accountIDs: [], groupID: id, store: store)
+        panel.rootView = AccountPopoverRoot(accountIDs: [], groupID: id, store: store)
     }
-    // `content` is what the group's panel shows (`UsageStore.groupPanel(for:)`). Without it the panel shows the accounts
-    // the lines draw, as tabs.
+    // `listed` is the accounts the group's panel lists (`UsageStore.panelAccountIDs(for:)`). Without it the panel lists
+    // the accounts the lines draw.
     func apply(_ entries: [MenuBarEntry], config: DisplayConfiguration, explicitRows: Bool = false, name: String = String(localized: "Group"),
-               panel content: GroupPanelContent? = nil) {
+               panel listed: [UUID]? = nil) {
         self.entries = entries
-        lastApplied = (config, explicitRows, name, content)
+        lastApplied = (config, explicitRows, name, listed)
         let image = DisplayStatusRenderer.render(entries: entries, config: config,
             height: max(18, NSStatusBar.system.thickness - 2), scale: statusItem.button?.window?.backingScaleFactor ?? 2, explicitRows: explicitRows,
             appearance: statusItem.button?.effectiveAppearance)
         statusItem.length = image.size.width
         statusItem.button?.image = image
         dragSurface?.badgeImage = image
-        var seen = Set<UUID>()
-        let shown = content ?? GroupPanelContent(mode: .tabs, accountIDs: entries.map(\.account.id).filter { seen.insert($0).inserted })
-        // A group with accounts but no lines opens its list, so it is not offered as a place to add a line.
-        let empty = shown.accountIDs.isEmpty ? String(localized: "\(name) · Click to add a usage line") : name + " · " + GroupListWords.accounts(shown.accountIDs.count)
+        let shown = listed ?? MenuBarLayout.unique(entries.map(\.account.id))
+        // An item without lines says what a click opens: the group's list, named as its header names it, or, listing no
+        // account, Settings to add a line.
+        let empty = shown.isEmpty ? String(localized: "\(name) · Click to add a usage line") : name + " · " + GroupListWords.accounts(shown.count)
         let description = entries.isEmpty ? empty : entries.map {
             "\($0.account.title) · \($0.metric.localizedTitle): \($0.percentage)" + ($0.stale ? " " + String(localized: "(cached)") : "")
         }.joined(separator: "\n")
@@ -180,8 +178,8 @@ final class StatusBarController {
         statusItem.button?.toolTip = accessibleDescription
         dragSurface?.toolTip = accessibleDescription
         statusItem.button?.setAccessibilityLabel(accessibleDescription)
-        if panel.rootView.accountIDs != shown.accountIDs || panel.rootView.mode != shown.mode {
-            panel.rootView = AccountPopoverRoot(mode: shown.mode, accountIDs: shown.accountIDs, groupID: groupID, store: store)
+        if panel.rootView.accountIDs != shown {
+            panel.rootView = AccountPopoverRoot(accountIDs: shown, groupID: groupID, store: store)
         }
     }
     // Draws the item again for the menu bar's new appearance, with the panel it had.
@@ -193,8 +191,7 @@ final class StatusBarController {
     @objc private func toggle(_ sender: AnyObject?) {
         guard let button = statusItem.button else { return }
         store.selectMenuBarGroup(groupID)
-        // Nothing to show: a group without lines or accounts. One whose accounts sit outside its lines has no entries
-        // but opens its list.
+        // Nothing to list: a group without accounts. One with accounts but no lines has no entries and still opens its list.
         if panel.rootView.accountIDs.isEmpty { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID); return }
         // The panel sizes itself to its content.
         if panel.isShown { panel.close() } else {
@@ -205,17 +202,13 @@ final class StatusBarController {
     }
 }
 
+// A group's panel: its accounts on one list, even a single one.
 struct AccountPopoverRoot: View {
-    var mode: GroupPanelMode = .tabs
     let accountIDs: [UUID]
     let groupID: UUID
     let store: UsageStore
     var body: some View {
-        Group {
-            if mode == .list { GroupAccountListView(accountIDs: accountIDs, groupID: groupID) }
-            else { AccountPopoverView(accountIDs: accountIDs, groupID: groupID) }
-        }
-        .environmentObject(store)
+        GroupAccountListView(accountIDs: accountIDs, groupID: groupID).environmentObject(store)
     }
 }
 

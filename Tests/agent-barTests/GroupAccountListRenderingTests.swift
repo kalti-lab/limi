@@ -96,15 +96,15 @@ struct GroupAccountListRenderingTests {
         for _ in 0..<250 where store.snapshots.count < order.count { try await Task.sleep(for: .milliseconds(20)) }
         #expect(store.snapshots.count == order.count)
         let layout = try #require(store.displayConfiguration.effectiveLayouts.first { $0.id == all.id })
-        let panel = store.groupPanel(for: layout)
-        #expect(panel == GroupPanelContent(mode: .list, accountIDs: order))
+        let panel = store.panelAccountIDs(for: layout)
+        #expect(panel == order)
         #expect(store.claudeCodeListRow(for: claude[1]).control == .inClaudeCode)
         guard case .use(enabled: true, _) = store.claudeCodeListRow(for: claude[3]).control else {
             Issue.record("CL4 should be ready for Claude Code"); return
         }
 
         // The pointer rests on CL4, the first row, so its Use button shows.
-        let list = GroupAccountListView(accountIDs: panel.accountIDs, groupID: all.id, hovered: claude[3].id).environmentObject(store)
+        let list = GroupAccountListView(accountIDs: panel, groupID: all.id, hovered: claude[3].id).environmentObject(store)
         for (name, appearance) in Self.appearances {
             let whole = try await draw(list, appearance: appearance, to: output?.appendingPathComponent("group-list-\(name).png"))
             #expect(whole.width == GroupAccountListView.width)

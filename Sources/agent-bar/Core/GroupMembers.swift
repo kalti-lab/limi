@@ -73,25 +73,13 @@ extension DisplayConfiguration {
     }
 }
 
-enum GroupPanelMode: Equatable { case tabs, list }
-
-/// What a group's panel shows, and which accounts in which order.
-struct GroupPanelContent: Equatable {
-    var mode: GroupPanelMode
-    var accountIDs: [UUID]
-}
-
 extension UsageStore {
-    /// A group holding an account that none of its menu bar lines draws lists all its accounts on one page.
-    /// Any other group shows tabs: in its members' order, or, holding none of its own, in its lines' order as before.
-    func groupPanel(for layout: MenuBarLayout) -> GroupPanelContent {
-        let drawn = MenuBarLayout.unique(entries(for: layout).map(\.account.id))
-        guard let members = layout.memberIDs else { return GroupPanelContent(mode: .tabs, accountIDs: drawn) }
-        // The same accounts `entries(for:)` leaves out: hidden ones and ones being deleted.
-        let shown = members.filter { id in
+    /// The accounts a group's panel lists, in the group's order: every account it holds, which for a group holding none
+    /// of its own are its lines' accounts. Hidden ones and ones being deleted are left out, as the menu bar leaves them out.
+    func panelAccountIDs(for layout: MenuBarLayout) -> [UUID] {
+        layout.effectiveMemberIDs.filter { id in
             displayConfiguration.isVisible(id) && accounts.contains { $0.id == id && !$0.deletionPending }
         }
-        return GroupPanelContent(mode: shown.allSatisfy(drawn.contains) ? .tabs : .list, accountIDs: shown)
     }
     /// The accounts a group holds, nil for a group that does not exist.
     func groupMembers(_ groupID: UUID) -> [UUID]? {

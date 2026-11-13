@@ -9,8 +9,8 @@ enum GroupListWords {
     }
 }
 
-// A group that holds accounts beyond its menu bar lines shows them all on one sheet, in the group's order: a row per
-// account with every limit its service reports. There is no detail view behind a row.
+// A group's panel shows all its accounts on one sheet, in the group's order: a row per account with every limit its
+// service reports. There is no detail view behind a row.
 struct GroupAccountListView: View {
     static let width: CGFloat = 400
     // A drag is measured in two places: the list's content, which scrolls, and the part of it in view.
@@ -50,7 +50,7 @@ struct GroupAccountListView: View {
 
     /// The rows the store gives this list now, in its order, as the panel will show them.
     private var liveOrder: [UUID]? {
-        store.displayConfiguration.effectiveLayouts.first { $0.id == groupID }.map { store.groupPanel(for: $0).accountIDs }
+        store.displayConfiguration.effectiveLayouts.first { $0.id == groupID }.map { store.panelAccountIDs(for: $0) }
     }
 
     var body: some View {

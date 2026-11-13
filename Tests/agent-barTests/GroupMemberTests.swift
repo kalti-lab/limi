@@ -156,31 +156,34 @@ struct GroupMemberTests {
         #expect(reordered.memberIDs == [f.b.id, f.a.id] && reordered.rows == lines.rows)
     }
 
-    @Test func onlyAGroupWithAMemberOutsideItsLinesListsItsAccounts() throws {
+    @Test func everyGroupListsAllItsAccountsInItsOrder() throws {
         let leaving = UsageAccount(id: UUID(), provider: .codex, name: "Leaving", credentialID: UUID(), deletionPending: true)
         let f = try MemberFixture(more: [leaving]); defer { f.close() }
-        // Without members of its own: tabs as before, the drawn lines' accounts each once.
+        // Without members of its own: its lines' accounts, each once, in the lines' order.
         let lines = MenuBarLayout(name: "Lines", rows: [line(f.b, slot: 0), line(f.a, slot: 1), line(f.b, "5h", slot: 2)])
-        #expect(f.store.groupPanel(for: lines) == GroupPanelContent(mode: .tabs, accountIDs: [f.b.id, f.a.id]))
-        // Every member drawn: tabs, in the members' order.
+        #expect(f.store.panelAccountIDs(for: lines) == [f.b.id, f.a.id])
+        // Ring draws only its first line; its second line's account is listed too, as its chips show it.
+        let ring = MenuBarLayout(name: "Ring", style: .ring, rows: [line(f.a, slot: 0), line(f.b, slot: 1)])
+        #expect(f.store.panelAccountIDs(for: ring) == ring.effectiveMemberIDs && ring.effectiveMemberIDs == [f.a.id, f.b.id])
+        // With members of its own: all of them in their order, whether the lines draw them or not.
         var group = lines
         group.memberIDs = [f.a.id, f.b.id]
-        #expect(f.store.groupPanel(for: group) == GroupPanelContent(mode: .tabs, accountIDs: [f.a.id, f.b.id]))
-        // One the lines do not draw: a list.
+        #expect(f.store.panelAccountIDs(for: group) == [f.a.id, f.b.id])
         group.memberIDs = [f.a.id, f.c.id, f.b.id]
-        #expect(f.store.groupPanel(for: group) == GroupPanelContent(mode: .list, accountIDs: [f.a.id, f.c.id, f.b.id]))
-        // Ring draws only its first line, so its second line's account is outside.
-        var ring = MenuBarLayout(name: "Ring", style: .ring, rows: [line(f.a, slot: 0), line(f.b, slot: 1)])
-        #expect(f.store.groupPanel(for: ring) == GroupPanelContent(mode: .tabs, accountIDs: [f.a.id]))
-        ring.memberIDs = ring.effectiveMemberIDs
-        #expect(f.store.groupPanel(for: ring) == GroupPanelContent(mode: .list, accountIDs: [f.a.id, f.b.id]))
+        #expect(f.store.panelAccountIDs(for: group) == [f.a.id, f.c.id, f.b.id])
+        // A group of one account lists that one.
+        let single = MenuBarLayout(name: "One", rows: [line(f.c, slot: 0)])
+        #expect(f.store.panelAccountIDs(for: single) == [f.c.id])
         // Hidden accounts and accounts being deleted are left out.
         f.store.updateDisplay { $0.setVisible(f.c.id, false) }
         group.memberIDs = [f.a.id, f.c.id, leaving.id, f.b.id]
-        #expect(f.store.groupPanel(for: group) == GroupPanelContent(mode: .tabs, accountIDs: [f.a.id, f.b.id]))
-        // No lines, only members: a list.
+        #expect(f.store.panelAccountIDs(for: group) == [f.a.id, f.b.id])
+        #expect(f.store.panelAccountIDs(for: single).isEmpty)
+        // No lines, only members.
         let membersOnly = MenuBarLayout(name: "Members", memberIDs: [f.b.id, f.a.id])
-        #expect(f.store.groupPanel(for: membersOnly) == GroupPanelContent(mode: .list, accountIDs: [f.b.id, f.a.id]))
+        #expect(f.store.panelAccountIDs(for: membersOnly) == [f.b.id, f.a.id])
+        // Neither lines nor members: nothing to list, so a click opens Settings.
+        #expect(f.store.panelAccountIDs(for: MenuBarLayout(name: "Empty")).isEmpty)
     }
 
     @Test func deletedAccountsLeaveGroupsAndNewOnesSkipGroupsWithMembers() throws {

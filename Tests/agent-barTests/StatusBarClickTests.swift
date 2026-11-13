@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import agent_bar
 
@@ -132,7 +133,7 @@ struct StatusBarClickTests {
         #expect(!restored.moveFromMenuBar(UUID(), to: first))
     }
 
-    @Test func aGroupWithAnAccountOutsideItsLinesOpensAList() async throws {
+    @Test func everyGroupOpensItsList() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("group-list-routing-\(UUID())")
         let suite = "group-list-routing-\(UUID())", defaults = UserDefaults(suiteName: suite)!
         defer { try? FileManager.default.removeItem(at: root); defaults.removePersistentDomain(forName: suite) }
@@ -146,47 +147,49 @@ struct StatusBarClickTests {
         defer { store.shutdown() }
         // The lines draw A; the group also holds C and B, in the order its chips were put.
         let list = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: a.id, metricID: "5h")], memberIDs: [c.id, a.id, b.id])
-        // Everything it holds is on a line: tabs, in the members' order rather than the lines'.
+        // Everything it holds is on a line: the members' order rather than the lines'.
         let pair = MenuBarLayout(name: "Pair", rows: [MenuBarLine(accountID: a.id, metricID: "weekly"),
                                                       MenuBarLine(accountID: b.id, metricID: "weekly")], memberIDs: [b.id, a.id])
         // Accounts and no lines.
         let bench = MenuBarLayout(name: "Bench", memberIDs: [b.id, c.id])
-        store.updateDisplay { $0.layouts = [list, pair, bench] }
+        // No accounts of its own: its lines' accounts, the second one too though Ring draws only the first.
+        let ring = MenuBarLayout(name: "Ring", style: .ring, rows: [MenuBarLine(accountID: c.id, metricID: "weekly"),
+                                                                     MenuBarLine(accountID: b.id, metricID: "weekly")])
+        // A single account.
+        let solo = MenuBarLayout(name: "Solo", rows: [MenuBarLine(accountID: b.id, metricID: "weekly")])
+        store.updateDisplay { $0.layouts = [list, pair, bench, ring, solo] }
         let coordinator = StatusBarCoordinator(store: store, providers: [.claude, .codex])
         defer { coordinator.removeAll() }
-        #expect(coordinator.physicalStatusItemCount == 3)
-        #expect(coordinator.popoverMode(for: list.id) == .list)
+        #expect(coordinator.physicalStatusItemCount == 5)
         #expect(coordinator.popoverAccountIDs(for: list.id) == [c.id, a.id, b.id])
-        #expect(coordinator.popoverMode(for: pair.id) == .tabs)
         #expect(coordinator.popoverAccountIDs(for: pair.id) == [b.id, a.id])
         // It has no entries, but a click opens its list rather than Settings, which only an empty panel opens.
-        #expect(coordinator.popoverMode(for: bench.id) == .list)
         #expect(coordinator.popoverAccountIDs(for: bench.id) == [b.id, c.id])
+        #expect(coordinator.popoverAccountIDs(for: ring.id) == [c.id, b.id])
+        #expect(coordinator.popoverAccountIDs(for: solo.id) == [b.id])
+        // The panel is the list, even for one account, rather than tabs over one account's details.
+        let soloPanel = NSHostingView(rootView: AccountPopoverRoot(accountIDs: [b.id], groupID: solo.id, store: store))
+        #expect(soloPanel.fittingSize.width == GroupAccountListView.width)
 
         // Reordering the chips reorders the list.
         store.moveGroupMember(b.id, to: c.id, in: list.id)
         try await waitFor { coordinator.popoverAccountIDs(for: list.id) == [b.id, c.id, a.id] }
-        #expect(coordinator.popoverMode(for: list.id) == .list)
-        // Taking out the accounts beyond its lines turns it back into tabs.
+        // Taking out the accounts beyond its lines leaves a list of the lines' accounts.
         store.removeGroupMember(b.id, from: list.id)
         try await waitFor { coordinator.popoverAccountIDs(for: list.id) == [c.id, a.id] }
-        #expect(coordinator.popoverMode(for: list.id) == .list)
         store.removeGroupMember(c.id, from: list.id)
-        try await waitFor { coordinator.popoverMode(for: list.id) == .tabs }
-        #expect(coordinator.popoverAccountIDs(for: list.id) == [a.id])
+        try await waitFor { coordinator.popoverAccountIDs(for: list.id) == [a.id] }
         // A hidden account leaves the list.
         store.updateDisplay { $0.setVisible(c.id, false) }
         try await waitFor { coordinator.popoverAccountIDs(for: bench.id) == [b.id] }
-        #expect(coordinator.popoverMode(for: bench.id) == .list)
 
         // Drawing the item again for a menu bar that turned light or dark keeps the list.
         let controller = StatusBarController(key: bench.id, store: store)
         defer { controller.remove() }
         let group = try #require(store.displayConfiguration.effectiveLayouts.first { $0.id == bench.id })
         controller.apply(store.entries(for: group), config: group.renderingConfiguration(store.displayConfiguration), explicitRows: true,
-                         name: group.name, panel: store.groupPanel(for: group))
+                         name: group.name, panel: store.panelAccountIDs(for: group))
         controller.reapply()
-        #expect(controller.popoverMode == .list)
         #expect(controller.popoverAccountIDs == [b.id])
         // Its item names the group's accounts instead of offering to add a line, since a click opens the list.
         #expect(controller.accessibilityLabel == "Bench · 1 account")
