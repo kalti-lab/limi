@@ -180,7 +180,7 @@ struct DisplayConfiguration: Codable, Equatable {
         return result
     }
     static func groupKey(_ group: Int) -> UUID { UUID(uuidString: String(format: "A6E17BA0-0000-4000-8000-%012X", group))! }
-    // Every account a shown group holds, or the accounts its lines draw when it holds none of its own.
+    // Every account listed by the panel of a group the menu bar shows; a group switched off has no panel.
     var refreshAccountIDs: Set<UUID> {
         guard let layouts else { return Set(visibleAccountIDs) }
         return Set(layouts.filter { $0.enabled && $0.showsAnything }.flatMap(\.refreshedAccountIDs).filter(isVisible))

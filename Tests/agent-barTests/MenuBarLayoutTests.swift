@@ -217,7 +217,8 @@ struct MenuBarLayoutTests {
         f.store.updateDisplay { $0.layouts = [group] }
         #expect(group.displayedRows.map(\.badgeText) == ["A"])
         #expect(f.store.entries(for: group).map(\.badgeLabel) == ["A"])
-        #expect(f.store.displayConfiguration.refreshAccountIDs == [f.a.id])
+        // The undrawn lines' accounts are still in the group's list, so they are refreshed.
+        #expect(f.store.displayConfiguration.refreshAccountIDs == [f.a.id, f.b.id])
         group.style = .bars
         f.store.updateDisplay { $0.layouts = [group] }
         #expect(group.displayedRows.map(\.badgeText) == ["A", "B", "C"])

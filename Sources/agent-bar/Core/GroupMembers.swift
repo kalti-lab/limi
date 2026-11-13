@@ -14,8 +14,9 @@ extension MenuBarLayout {
     }
     /// The accounts this group holds, in order. The first edit of a group's accounts starts from these.
     var effectiveMemberIDs: [UUID] { memberIDs ?? everyLineAccountID }
-    /// The accounts refreshed while this group is shown: all it holds, or only those its lines draw.
-    var refreshedAccountIDs: [UUID] { Self.unique(lineAccountIDs + (memberIDs ?? [])) }
+    /// The accounts refreshed while this group is shown: its lines' accounts and every other account its panel lists,
+    /// such as that of a line Ring does not draw, so no row of the list waits.
+    var refreshedAccountIDs: [UUID] { Self.unique(lineAccountIDs + effectiveMemberIDs) }
     /// The accounts a usage line may use: the group's own, or else every account in `ordered`.
     func lineAccountChoices(_ ordered: [UUID]) -> [UUID] {
         memberIDs.map { $0.filter(ordered.contains) } ?? ordered

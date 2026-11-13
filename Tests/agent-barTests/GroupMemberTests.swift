@@ -258,14 +258,28 @@ struct GroupMemberTests {
         #expect(f.store.refreshAccountIDs == [f.a.id])
         f.store.updateDisplay { $0.editLayout(off.id) { $0.enabled = true } }
         #expect(f.store.refreshAccountIDs == [f.a.id, f.c.id])
+    }
 
-        // Ring without members of its own refreshes only its drawn line's account; with members, all of them.
+    // Every account a group lists is refreshed, so no row of the list waits: Ring without members of its own draws only
+    // its first line, and its second line's account is refreshed too.
+    @Test func everyAccountAGroupListsIsRefreshed() throws {
+        let f = try MemberFixture(); defer { f.close() }
         var ring = MenuBarLayout(name: "Ring", style: .ring, rows: [line(f.a, slot: 0), line(f.c, slot: 1)])
         f.store.updateDisplay { $0.layouts = [ring] }
-        #expect(f.store.refreshAccountIDs == [f.a.id])
+        #expect(ring.memberIDs == nil && ring.displayedRows.map(\.accountID) == [f.a.id])
+        #expect(f.store.panelAccountIDs(for: ring) == [f.a.id, f.c.id])
+        #expect(f.store.refreshAccountIDs == [f.a.id, f.c.id])
+        // The same once it holds them as its own.
         ring.memberIDs = ring.effectiveMemberIDs
         f.store.updateDisplay { $0.layouts = [ring] }
         #expect(f.store.refreshAccountIDs == [f.a.id, f.c.id])
+        // A hidden account leaves the list and is not refreshed.
+        f.store.updateDisplay { $0.setVisible(f.c.id, false) }
+        #expect(f.store.panelAccountIDs(for: ring) == [f.a.id])
+        #expect(f.store.refreshAccountIDs == [f.a.id])
+        // A group switched off in the menu bar refreshes none of its accounts.
+        f.store.updateDisplay { $0.setVisible(f.c.id, true); $0.editLayout(ring.id) { $0.enabled = false } }
+        #expect(f.store.refreshAccountIDs.isEmpty)
     }
 }
 
