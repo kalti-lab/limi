@@ -128,16 +128,16 @@ struct UsageStoreClaudeCodeTests {
 
         // A panel that only showed the other account leaves it alone, and closing a panel that is not open does nothing.
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(prev.id, group: group)
+        store.claudeCodePanelShows([prev.id], group: group)
         store.claudeCodePanelDidClose(group: group)
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[target.id]?.closes == 0)
-        // Shown, by its tab: the first close keeps it, so a panel closed by accident can be opened again to read it.
+        // Shown: the first close keeps it, so a panel closed by accident can be opened again to read it.
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(target.id, group: group)
+        store.claudeCodePanelShows([target.id], group: group)
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[target.id]?.closes == 1)
-        // Shown again because the panel opens on the account it showed last: the second close clears it.
+        // Shown again, since the panel lists the accounts it listed last: the second close clears it.
         store.claudeCodePanelWillOpen(group: group)
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[target.id] == nil)
@@ -153,7 +153,7 @@ struct UsageStoreClaudeCodeTests {
         await store.runClaudeCodeStartup()
         let group = UUID()
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(target.id, group: group)
+        store.claudeCodePanelShows([target.id], group: group)
 
         store.useInClaudeCode(target)
         #expect(await waitUntil { store.claudeCodeActivity == nil })
@@ -162,20 +162,20 @@ struct UsageStoreClaudeCodeTests {
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[target.id]?.closes == 1)
 
-        // A result that arrives after the person moved to another tab has not been on screen.
+        // A result that arrives after the panel stopped listing its account has not been on screen.
         let hold = f.world.hold(login: "default")
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(prev.id, group: group)
+        store.claudeCodePanelShows([prev.id], group: group)
         store.useInClaudeCode(prev)
         #expect(await waitUntil { f.world.calls.filter { $0.arguments == ["auth", "login", "--claudeai"] }.count >= 3 })
-        store.claudeCodePanelShows(target.id, group: group)
+        store.claudeCodePanelShows([target.id], group: group)
         hold.release.signal()
         #expect(await waitUntil { store.claudeCodeActivity == nil })
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[prev.id]?.succeeded == true && store.claudeCodeResults[prev.id]?.closes == 0)
-        // It counts once its tab is on screen.
+        // It counts once the panel lists its account again.
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(prev.id, group: group)
+        store.claudeCodePanelShows([prev.id], group: group)
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeResults[prev.id]?.closes == 1)
     }
@@ -194,12 +194,12 @@ struct UsageStoreClaudeCodeTests {
 
         // Not on screen yet: a panel that showed another account keeps it.
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(other.id, group: group)
+        store.claudeCodePanelShows([other.id], group: group)
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeConfirmation?.accountID == target.id)
         // Shown, then closed: the yes it asked for is not kept.
         store.claudeCodePanelWillOpen(group: group)
-        store.claudeCodePanelShows(target.id, group: group)
+        store.claudeCodePanelShows([target.id], group: group)
         store.claudeCodePanelDidClose(group: group)
         #expect(store.claudeCodeConfirmation == nil)
         #expect(f.defaultEmail == "stranger@example.test")

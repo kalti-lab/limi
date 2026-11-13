@@ -104,7 +104,7 @@ final class StatusBarController {
     private var groupID: UUID
     let positionID: UUID
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let panel: MenuBarPanel<AccountPopoverRoot>
+    private let panel: MenuBarPanel<GroupPanelRoot>
     private var entries: [MenuBarEntry] = []
     private var dragSurface: BadgeDragSurface?
     private var lastApplied: (config: DisplayConfiguration, explicitRows: Bool, name: String, panel: [UUID]?)?
@@ -119,7 +119,7 @@ final class StatusBarController {
         self.store = store
         groupID = key
         self.positionID = positionID ?? key
-        panel = MenuBarPanel(rootView: AccountPopoverRoot(accountIDs: [], groupID: key, store: store))
+        panel = MenuBarPanel(rootView: GroupPanelRoot(accountIDs: [], groupID: key, store: store))
         defer {
             // Wallpaper or theme changes flip the menu bar between light and dark.
             appearanceObservation = statusItem.button?.observe(\.effectiveAppearance) { [weak self] _, _ in
@@ -152,7 +152,7 @@ final class StatusBarController {
         panel.close()
         groupID = id
         dragSurface?.groupID = id
-        panel.rootView = AccountPopoverRoot(accountIDs: [], groupID: id, store: store)
+        panel.rootView = GroupPanelRoot(accountIDs: [], groupID: id, store: store)
     }
     // `listed` is the accounts the group's panel lists (`UsageStore.panelAccountIDs(for:)`). Without it the panel lists
     // the accounts the lines draw.
@@ -179,7 +179,7 @@ final class StatusBarController {
         dragSurface?.toolTip = accessibleDescription
         statusItem.button?.setAccessibilityLabel(accessibleDescription)
         if panel.rootView.accountIDs != shown {
-            panel.rootView = AccountPopoverRoot(accountIDs: shown, groupID: groupID, store: store)
+            panel.rootView = GroupPanelRoot(accountIDs: shown, groupID: groupID, store: store)
         }
     }
     // Draws the item again for the menu bar's new appearance, with the panel it had.
@@ -203,7 +203,7 @@ final class StatusBarController {
 }
 
 // A group's panel: its accounts on one list, even a single one.
-struct AccountPopoverRoot: View {
+struct GroupPanelRoot: View {
     let accountIDs: [UUID]
     let groupID: UUID
     let store: UsageStore

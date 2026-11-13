@@ -53,8 +53,8 @@ final class UsageStore: ObservableObject {
     var claudeCodeReadAgain = false
     // Bumped when a switch or a sign-in starts or ends, so a reading that began before it is dropped.
     var claudeCodeEpoch = 0
-    // Which accounts each menu bar group's panel shows (the one its tabs chose, or every account of its list), the group
-    // whose panel is open, and the result lines and question that panel has shown since it opened.
+    // Which accounts each menu bar group's panel lists, the group whose panel is open, and the result lines and question
+    // that panel has shown since it opened.
     var claudeCodePanelShown: [UUID: Set<UUID>] = [:]
     var claudeCodeOpenPanel: UUID?
     var claudeCodeResultsShown: Set<UUID> = []
@@ -227,9 +227,6 @@ final class UsageStore: ObservableObject {
             if automaticRefresh { requestRefresh(newlyVisible) }
         }
         catch { displayError = String(localized: "Could not save display settings: \(error.localizedDescription)") }
-    }
-    var visibleAccounts: [UsageAccount] {
-        displayConfiguration.visibleAccountIDs.compactMap { id in liveAccounts.first { $0.id == id } }
     }
     var orderedAccounts: [UsageAccount] {
         displayConfiguration.order.compactMap { id in liveAccounts.first { $0.id == id } }

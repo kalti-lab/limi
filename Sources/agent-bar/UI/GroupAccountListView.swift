@@ -116,7 +116,7 @@ struct GroupAccountListView: View {
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1).fixedSize()
                 }
                 Spacer(minLength: 8)
-                // Side by side, so their hover backgrounds touch, as in the tabs' header.
+                // Side by side, so their hover backgrounds touch.
                 HStack(spacing: 0) {
                     if accounts.contains(where: { store.refreshingAccounts.contains($0.id) }) {
                         // The room the refresh button takes, so the header does not shift while it turns.

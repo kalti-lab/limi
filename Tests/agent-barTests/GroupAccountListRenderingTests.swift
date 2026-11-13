@@ -242,7 +242,7 @@ struct GroupAccountListRenderingTests {
 
         // The pointer rests on CL2, so its Use button is back without the pointer moving, and a click that wobbles a
         // point uses the account rather than dragging it.
-        let titleHeight = NSHostingView(rootView: ClaudeCodeControlView.heightTemplate).fittingSize.height
+        let titleHeight = NSHostingView(rootView: GroupAccountRow.buttonHeightTemplate).fittingSize.height
         let use = inView(4 + 7 + titleHeight / 2, x: content.width - 6 - 8 - 10)
         try await window.drag(from: use, to: use.moved(1, 1))
         try #require(await until { store.claudeCodeAccountID == accounts[1].id }, "Use did not switch Claude Code")

@@ -224,10 +224,6 @@ struct DisplayConfigurationTests {
         if let out, let rep = staleImage.representations.first as? NSBitmapImageRep {
             try rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("status-stale.png"))
         }
-        let view = NSHostingView(rootView: AccountPopoverView(accountID: b.id).environmentObject(store))
-        view.frame = NSRect(x: 0, y: 0, width: 392, height: 520); view.layoutSubtreeIfNeeded()
-        let rep = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds)); view.cacheDisplay(in: view.bounds, to: rep)
-        if let out { try rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("popover.png")) }
 
         let broken = Data("{bad".utf8); try broken.write(to: url)
         let recovered = UsageStore(settings: settings, files: files, autoRefresh: false)

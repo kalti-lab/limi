@@ -14,6 +14,8 @@ struct GroupAccountRow: View {
     }
 
     static let cellsPerLine = 3
+    // One text size for the Claude Code button and the "In use" state, so they read as the same line.
+    static let buttonFont = Font.caption.weight(.semibold)
 
     let provider: ProviderKind
     let badge: String
@@ -63,7 +65,7 @@ struct GroupAccountRow: View {
     private var titleLine: some View {
         ZStack(alignment: .leading) {
             // As tall as a line with the Claude Code button, so rows line up whether or not they have one.
-            ClaudeCodeControlView.heightTemplate
+            Self.buttonHeightTemplate
             HStack(spacing: 6) {
                 Text(verbatim: badge).font(.headline).lineLimit(1).fixedSize()
                 if let plan = snapshot.planName, !plan.isEmpty { PlanTag(plan: plan).fixedSize() }
@@ -83,7 +85,7 @@ struct GroupAccountRow: View {
         case .inClaudeCode:
             // A state, always shown.
             Text(ClaudeCodeWords.inUse)
-                .font(ClaudeCodeControlView.textFont)
+                .font(Self.buttonFont)
                 .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 7).padding(.vertical, 2)
                 .background(Color.accentColor.opacity(0.12), in: Capsule())
@@ -99,7 +101,7 @@ struct GroupAccountRow: View {
     // Shows while the pointer is over the row. Until then it takes no width, no clicks and no keys, so the address keeps
     // the room; the row's height stays, since the line is always as tall as the button.
     private func pointerButton(_ title: String, enabled: Bool, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Text(title).font(ClaudeCodeControlView.textFont) }
+        Button(action: action) { Text(title).font(Self.buttonFont) }
             .buttonStyle(PanelBorderedButtonStyle())
             .disabled(!enabled || !highlighted)
             .fixedSize()
@@ -108,6 +110,16 @@ struct GroupAccountRow: View {
             .allowsHitTesting(highlighted)
             .frame(width: highlighted ? nil : 0, alignment: .trailing)
             .accessibilityHidden(true)
+    }
+
+    // Draws nothing and takes no width; a line that holds it is as tall as one with the Claude Code button.
+    static var buttonHeightTemplate: some View {
+        Button {} label: { Text(ClaudeCodeWords.use).font(buttonFont) }
+            .buttonStyle(PanelBorderedButtonStyle())
+            .fixedSize()
+            .hidden()
+            .accessibilityHidden(true)
+            .frame(width: 0)
     }
 
     // The limits the service reports, three to a line in their usual order (5h, Week, then each model's week). An account

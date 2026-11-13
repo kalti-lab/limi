@@ -24,22 +24,6 @@ enum TokenFormatters {
         return formatter
     }
 
-    static func compactTokenString(_ value: Int) -> String {
-        let absolute = Double(abs(value))
-        let sign = value < 0 ? "-" : ""
-
-        switch absolute {
-        case 1_000_000_000...:
-            return "\(sign)\(String(format: "%.1f", absolute / 1_000_000_000))B"
-        case 1_000_000...:
-            return "\(sign)\(String(format: "%.1f", absolute / 1_000_000))M"
-        case 1_000...:
-            return "\(sign)\(String(format: "%.1f", absolute / 1_000))k"
-        default:
-            return "\(value)"
-        }
-    }
-
     static func percentageString(for utilization: Double?) -> String {
         guard let utilization else { return "--" }
         return "\(Int((utilization * 100).rounded()))%"

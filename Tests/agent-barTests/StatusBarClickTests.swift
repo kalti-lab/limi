@@ -27,12 +27,12 @@ struct StatusBarClickTests {
         try await waitFor { coordinator.physicalStatusItemCount == 1 }
         #expect(coordinator.popoverAccountIDs(for: a.id) == [a.id])
         #expect(coordinator.popoverAccountIDs(for: b.id) == nil)
-        #expect(store.visibleAccounts.map(\.id) == [a.id])
+        #expect(store.displayConfiguration.visibleAccountIDs == [a.id])
         store.updateDisplay { $0.setVisible(b.id, true) }
         try await waitFor { coordinator.physicalStatusItemCount == 2 }
         #expect(coordinator.popoverAccountIDs(for: b.id) == [b.id])
         #expect((coordinator.statusItemLength(for: b.id) ?? 0) > 0)
-        #expect(store.visibleAccounts.map(\.id) == [a.id, b.id])
+        #expect(store.displayConfiguration.visibleAccountIDs == [a.id, b.id])
         // Turning off every component is refused so an item never renders empty.
         store.updateDisplay { $0.setComponent(badge: false, bar: false, percent: false) }
         #expect(store.displayConfiguration.showsAnything)
@@ -167,8 +167,8 @@ struct StatusBarClickTests {
         #expect(coordinator.popoverAccountIDs(for: bench.id) == [b.id, c.id])
         #expect(coordinator.popoverAccountIDs(for: ring.id) == [c.id, b.id])
         #expect(coordinator.popoverAccountIDs(for: solo.id) == [b.id])
-        // The panel is the list, even for one account, rather than tabs over one account's details.
-        let soloPanel = NSHostingView(rootView: AccountPopoverRoot(accountIDs: [b.id], groupID: solo.id, store: store))
+        // The panel is the list, even for one account.
+        let soloPanel = NSHostingView(rootView: GroupPanelRoot(accountIDs: [b.id], groupID: solo.id, store: store))
         #expect(soloPanel.fittingSize.width == GroupAccountListView.width)
 
         // Reordering the chips reorders the list.

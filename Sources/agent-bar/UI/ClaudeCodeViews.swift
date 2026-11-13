@@ -1,8 +1,8 @@
 import SwiftUI
 
-// What a Claude account's panel shows about using that account in Claude Code: a control beside the provider name and
-// a few lines under the header. Plain values, so every state can be drawn without a store; `UsageStore.claudeCodePanel(for:)`
-// makes it from the store's state. Adapted from the original AgentBar, drawn in Limi's system style.
+// What a Claude account's row in a group's account list shows about using that account in Claude Code: a control on
+// its first line and a few lines under it. Plain values, so every state can be drawn without a store;
+// `UsageStore.claudeCodePanel(for:)` makes it from the store's state. Adapted from the original AgentBar.
 struct ClaudeCodePanel: Equatable {
     enum Control: Equatable {
         // Nothing: the feature is off, Claude Code is not installed, or the account is not a Claude account.
@@ -40,9 +40,9 @@ struct ClaudeCodePanel: Equatable {
     }
 }
 
-// What the app calls using an account in Claude Code, in one place so the panel's header, a group's account list and
-// Settings › Accounts say the same. The Use button's help comes with its control from
-// `UsageStore.claudeCodePanel(for:)`, since it also says why the button is blocked.
+// What the app calls using an account in Claude Code, in one place so a group's account list and Settings › Accounts
+// say the same. The Use button's help comes with its control from `UsageStore.claudeCodePanel(for:)`, since it also
+// says why the button is blocked.
 enum ClaudeCodeWords {
     // The button that switches Claude Code to the account.
     static var use: String { String(localized: "Use") }
@@ -51,56 +51,7 @@ enum ClaudeCodeWords {
     static var inUseHelp: String { String(localized: "Claude Code is signed in to this account.") }
 }
 
-// The control beside the provider name: "Use", "Set Up in Settings…" for an account with no sign-in saved yet, or
-// "In use" for the account Claude Code already uses.
-struct ClaudeCodeControlView: View {
-    let control: ClaudeCodePanel.Control
-    var use: () -> Void = {}
-    var setUp: () -> Void = {}
-
-    // One text size for the buttons and the state, so they read as the same line.
-    static let textFont = Font.caption.weight(.semibold)
-
-    var body: some View {
-        switch control {
-        case .hidden:
-            EmptyView()
-        case .inClaudeCode:
-            // A state, not a button: no background, a check beside the words.
-            Label(ClaudeCodeWords.inUse, systemImage: "checkmark.circle.fill")
-                .font(Self.textFont)
-                .foregroundStyle(.green)
-                .fixedSize()
-                .help(ClaudeCodeWords.inUseHelp)
-        case .use(let enabled, let help):
-            // A real button, even inside the header's borderless ones; a blocked one is grey but still a button.
-            Button(action: use) { Text(ClaudeCodeWords.use).font(Self.textFont) }
-                .buttonStyle(PanelBorderedButtonStyle())
-                .disabled(!enabled)
-                .fixedSize()
-                .help(help)
-        case .setUp(let help):
-            Button(action: setUp) { Text("Set Up in Settings…").font(Self.textFont) }
-                .buttonStyle(PanelBorderedButtonStyle())
-                .fixedSize()
-                .help(help)
-        }
-    }
-}
-
-extension ClaudeCodeControlView {
-    // Draws nothing and takes no width; a line that holds it is as tall as one with the button.
-    static var heightTemplate: some View {
-        Button {} label: { Text(ClaudeCodeWords.use).font(textFont) }
-            .buttonStyle(PanelBorderedButtonStyle())
-            .fixedSize()
-            .hidden()
-            .accessibilityHidden(true)
-            .frame(width: 0)
-    }
-}
-
-// The lines under the header: progress, the question, the last result, or why the button is blocked.
+// The lines under an account's row: progress, the question, the last result, or why the button is blocked.
 struct ClaudeCodeLinesView: View {
     let lines: [ClaudeCodePanel.Line]
     // "Switch" on the question.

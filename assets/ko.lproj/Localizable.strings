@@ -21,11 +21,9 @@
 "%@ · no data yet" = "%@ · 아직 데이터 없음";
 "%@ — Settings" = "%@ — 설정";
 "%lld accounts" = "계정 %lld개";
-"%lld accounts in menu bar" = "메뉴 막대에 계정 %lld개";
 "%lld · drag to reorder the list" = "%lld개 · 끌어서 목록 순서 바꾸기";
 "(cached)" = "(저장된 값)";
 "1 account" = "계정 1개";
-"1 account in menu bar" = "메뉴 막대에 계정 1개";
 "1 minute" = "1분";
 "10 minutes" = "10분";
 "2 minutes" = "2분";
@@ -66,8 +64,6 @@
 "Antigravity reported no limits for this account." = "Antigravity가 이 계정의 한도를 알려 주지 않았습니다.";
 "Badge text and color are edited on usage lines in Menu Bar." = "배지 글자와 색은 메뉴 막대 탭의 사용량 줄에서 바꿉니다.";
 "Badge, one bar, percentage." = "배지, 막대 하나, 퍼센트.";
-"Budget %@" = "한도 %@";
-"Cached usage." = "저장된 사용량입니다.";
 "Cached usage. Checking for an update." = "저장된 사용량입니다. 새 값을 확인하고 있습니다.";
 "Cached usage. Waiting for the next refresh." = "저장된 사용량입니다. 다음 새로 고침을 기다리고 있습니다.";
 "Cancel" = "취소";
@@ -167,7 +163,6 @@
 "Refresh Interval" = "새로 고침 간격";
 "Refresh now" = "지금 새로 고침";
 "Refreshing…" = "새로 고치는 중…";
-"Remaining %lld%%" = "%lld%% 남음";
 "Remove %@ from this group" = "%@ 계정을 이 그룹에서 빼기";
 "Remove Line" = "줄 삭제";
 "Remove this usage line" = "이 사용량 줄 삭제";
@@ -224,7 +219,6 @@
 "The sign-in window closed before sign-in completed. Please try again." = "로그인이 완료되기 전에 로그인 창이 닫혔습니다. 다시 시도하세요.";
 "These groups use a large portion of the menu bar." = "이 그룹들이 메뉴 막대를 많이 차지합니다.";
 "This account is already registered: %@" = "이미 등록된 계정입니다: %@";
-"This account was removed." = "이 계정은 삭제되었습니다.";
 "This is a different account from the one being reconnected. It can only be added as a new account." = "다시 연결하려던 계정과 다른 계정입니다. 새 계정으로만 추가할 수 있습니다.";
 "This is a different account. Add it as a new account." = "다른 계정입니다. 새 계정으로 추가하세요.";
 "This removes only the selected account’s %@ credentials and usage cache. External CLI sign-ins are preserved." = "선택한 계정의 %@ 자격 증명과 사용량 캐시만 삭제합니다. CLI 로그인은 그대로 남습니다.";
@@ -233,13 +227,10 @@
 "Unsupported account settings version. The settings file was preserved." = "지원하지 않는 계정 설정 버전입니다. 설정 파일은 그대로 두었습니다.";
 "Untitled" = "이름 없음";
 "Updated %@" = "%@ 업데이트";
-"Usage data is unavailable." = "사용량 정보를 불러올 수 없습니다.";
 "Usage line" = "사용량 줄";
 "Usage lines · %lld/%lld" = "사용량 줄 · %lld/%lld";
 "Usage values · %lld" = "사용량 값 · %lld";
 "Use Private Window Instead" = "비공개 창으로 로그인";
-"Used %@" = "%@ 사용";
-"Used %lld%%" = "%lld%% 사용";
 "Version" = "버전";
 "Week" = "주간";
 "Weekly" = "주간";

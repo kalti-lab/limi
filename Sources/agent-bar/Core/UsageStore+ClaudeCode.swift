@@ -211,7 +211,7 @@ extension UsageStore {
 
     // MARK: Switching
 
-    // "Use" beside an account: in its panel's header or in a group's account list.
+    // "Use" on an account's row in a group's account list.
     func useInClaudeCode(_ account: UsageAccount) {
         // The registry's own copy, in case the one the panel holds is older.
         guard let account = accounts.first(where: { $0.id == account.id }), canStartClaudeCodeSwitch(account) else { return }
@@ -506,10 +506,7 @@ extension UsageStore {
         noteClaudeCodeShown()
     }
 
-    // The panel says which of its accounts it shows: one at a time, chosen by tabs.
-    func claudeCodePanelShows(_ accountID: UUID, group: UUID) { claudeCodePanelShows([accountID], group: group) }
-
-    // A group's account list shows all of its accounts at once.
+    // The panel says which accounts it shows: a group's account list shows all of its accounts at once.
     func claudeCodePanelShows(_ accountIDs: [UUID], group: UUID) {
         claudeCodePanelShown[group] = Set(accountIDs)
         if claudeCodeOpenPanel == group { noteClaudeCodeShown() }

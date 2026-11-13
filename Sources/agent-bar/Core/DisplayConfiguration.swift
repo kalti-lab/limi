@@ -31,7 +31,6 @@ enum AccountColor: String, Codable, CaseIterable, Identifiable {
         case .yellow: return NSColor(red: 0.93, green: 0.84, blue: 0.50, alpha: 1)
         }
     }
-    var color: Color { Color(nsColor: nsColor) }
     static func preferred(for provider: ProviderKind) -> AccountColor {
         switch provider {
         case .claude: return .blue

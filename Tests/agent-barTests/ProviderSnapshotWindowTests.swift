@@ -97,7 +97,7 @@ struct ProviderSnapshotWindowTests {
         let store = UsageStore(settings: settings, files: files, autoRefresh: false,
                                loadAccount: { _, _ in snapshot })
         await store.refresh()
-        let account = store.visibleAccounts.first!
+        let account = store.orderedAccounts.first!
         let controller = StatusBarController(key: account.id, store: store)
         defer { controller.remove() }
         // The preferred metric is weekly, so a Codex account without 5h data still reads as weekly.
