@@ -34,6 +34,7 @@ struct LocalizationTests {
             "Accounts in this group", "%lld · drag to reorder the list", "Add", "Add an account to this group",
             "Every account is in this group.", "Remove %@ from this group", "Move left", "Move right",
             "1 account", "%lld accounts", "5h", "Week",
+            "Sort by", "Sort the list", "Manual", "Usage", "Reset time",
         ]
         for key in added { #expect(strings[key] != nil, "\(key)") }
         let removed = [

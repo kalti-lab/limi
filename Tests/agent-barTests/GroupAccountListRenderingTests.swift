@@ -250,6 +250,131 @@ struct GroupAccountListRenderingTests {
         #expect(order() == "cl2 cl3 cl1 cl4 cl5 cl6 cl7")
     }
 
+    // A sorted list moves its rows only at a moment to sort: when the panel opens, when the sort changes and when a refresh
+    // round ends. Numbers that come in between leave the rows where they are, so nothing jumps under someone reading.
+    @Test func aSortedListMovesItsRowsOnlyWhenItOpensItsSortChangesOrARoundEnds() async throws {
+        let output = ProcessInfo.processInfo.environment["AGENTBAR_QA_ARTIFACT_DIR"].map { URL(fileURLWithPath: $0) }
+        if let output { try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true) }
+        let f = try SwitchFixture()
+        let claude = ["cl", "cl2", "cl3"].map { f.addAccount($0) }
+        let codex = UsageAccount(id: UUID(), provider: .codex, name: "cx", identity: .init(email: "cx@example.test"), credentialID: UUID())
+        let accounts = claude + [codex]
+        var registry = AccountRegistry(accounts: f.accounts + [codex]); registry.repairRepresentatives()
+        try f.files.write(registry, to: f.files.registryURL)
+        // The most used is not the soonest to reset. Codex is read beside Claude, so a round can hold it back alone.
+        let usage: [UUID: ProviderSnapshot] = [
+            claude[0].id: Self.reading(.claude, 20, resets: 4), claude[1].id: Self.reading(.claude, 60, resets: 1),
+            claude[2].id: Self.reading(.claude, 40, resets: 3), codex.id: Self.reading(.codex, 90, resets: 2),
+        ]
+        let gate = Gate()
+        let suite = "group-list-sort-\(UUID())", defaults = UserDefaults(suiteName: suite)!
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: f.files, autoRefresh: false,
+                               loadAccount: { account, _ in
+                                   if account.provider == .codex { await gate.wait() }
+                                   return usage[account.id] ?? .placeholder(for: account.provider)
+                               },
+                               claudeCode: f.switcher, claudeCodeBrowser: BrowserLoginLauncher(openURL: { _ in true }))
+        defer { gate.open(); store.shutdown(); defaults.removePersistentDomain(forName: suite) }
+        let ids = accounts.map(\.id)
+        let group = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: ids[0], metricID: "5h")], memberIDs: ids)
+        store.updateDisplay { $0.editLayouts { $0 = [group] } }
+        store.setListSort(.usage, for: group.id)
+
+        // The panel, opened once, telling the test the order of its rows.
+        let rows = ListRows()
+        func panel(openings: Int) -> ListReadingRows {
+            ListReadingRows(list: GroupAccountListView(accountIDs: ids, groupID: group.id, openings: openings), store: store, rows: rows)
+        }
+        let host = NSHostingView(rootView: panel(openings: 1))
+        let window = ListWindow(host: host, height: 640)
+        defer { window.close() }
+        func shown() -> String { rows.order.map { id in accounts.first { $0.id == id }?.name ?? "?" }.joined(separator: " ") }
+        // Nothing read yet: usage has nothing to go by, so the rows keep the group's order.
+        try #require(await until { shown() == "cl cl2 cl3 cx" }, "\(shown())")
+
+        // A round reads Claude while Codex waits. The new numbers would sort the rows, but the list keeps them still.
+        store.refreshNow()
+        try #require(await until { store.snapshots.count == 3 }, "\(store.snapshots.count)")
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(store.isRefreshing)
+        #expect(shown() == "cl cl2 cl3 cx")
+        // The panel opens again: the rows go in the order of the numbers there are, CX last with none yet.
+        host.rootView = panel(openings: 2)
+        try #require(await until { shown() == "cl2 cl3 cl cx" }, "\(shown())")
+        // The round ends with CX read: the rows sort again.
+        gate.open()
+        try #require(await until { !store.isRefreshing && shown() == "cx cl2 cl3 cl" }, "\(shown())")
+        // Another sort puts them in its order at once, and Manual back in the group's own.
+        for (sort, order) in [(GroupListSort.resetTime, "cl2 cx cl3 cl"), (.usage, "cx cl2 cl3 cl")] {
+            store.setListSort(sort, for: group.id)
+            try #require(await until { shown() == order }, "\(sort): \(shown())")
+            for (name, appearance) in Self.appearances {
+                let list = GroupAccountListView(accountIDs: ids, groupID: group.id).environmentObject(store)
+                try await draw(list, appearance: appearance, to: output?.appendingPathComponent("group-list-sort-\(sort.rawValue)-\(name).png"))
+            }
+        }
+        store.setListSort(.manual, for: group.id)
+        try #require(await until { shown() == "cl cl2 cl3 cx" }, "\(shown())")
+
+        // The header's sort button names the sort in use: pictures of the list under each sort differ in the header only
+        // in its right half, where the button stands before the refresh and settings buttons.
+        let pictures = try [GroupListSort.manual, .usage, .resetTime].map { sort in
+            store.setListSort(sort, for: group.id)
+            return try picture(GroupAccountListView(accountIDs: ids, groupID: group.id).environmentObject(store)).bitmap
+        }
+        store.setListSort(.manual, for: group.id)
+        for other in pictures.dropFirst() {
+            let columns = Self.headerColumns(differingBetween: pictures[0], other)
+            #expect(!columns.isEmpty && columns.allSatisfy { $0 > GroupAccountListView.width / 2 }, "\(columns.first ?? -1)…\(columns.last ?? -1)")
+        }
+    }
+
+    // Only the group's own order is set by hand. Sorted by usage, a row dragged onto another stays where it was, and a
+    // click on Use still uses the account.
+    @Test func aSortedListStartsNoDrag() async throws {
+        let f = try SwitchFixture()
+        let accounts = (1...7).map { f.addAccount("cl\($0)") }
+        // Claude Code uses CL2, and CL1 is ready to take over.
+        f.signInDefault(accounts[1])
+        try f.saveLogin(for: accounts[0])
+        var registry = AccountRegistry(accounts: f.accounts); registry.repairRepresentatives()
+        try f.files.write(registry, to: f.files.registryURL)
+        let suite = "group-list-sorted-drag-\(UUID())", defaults = UserDefaults(suiteName: suite)!
+        let store = UsageStore(settings: AppSettings(defaults: defaults), files: f.files, autoRefresh: false,
+                               claudeCode: f.switcher, claudeCodeBrowser: BrowserLoginLauncher(openURL: { _ in true }))
+        defer { store.shutdown(); defaults.removePersistentDomain(forName: suite) }
+        await store.runClaudeCodeStartup()
+        let ids = accounts.map(\.id)
+        let group = MenuBarLayout(name: "ALL", rows: [MenuBarLine(accountID: ids[0], metricID: "5h")], memberIDs: ids)
+        store.updateDisplay { $0.editLayouts { $0 = [group] } }
+        store.setListSort(.usage, for: group.id)
+        func order() -> String { (store.groupMembers(group.id) ?? []).map { id in accounts.first { $0.id == id }?.name ?? "?" }.joined(separator: " ") }
+
+        // Nothing read yet, so usage keeps the group's order. The pointer rests on CL1, the first row, so its Use shows.
+        let view = GroupAccountListView(accountIDs: ids, groupID: group.id, hovered: ids[0], stepAnimation: nil).environmentObject(store)
+        let window = ListWindow(view, height: 360)
+        defer { window.close() }
+        try await Task.sleep(for: .milliseconds(100))
+        let list = try #require(window.scrollView)
+        let content = try #require(list.documentView?.frame.size)
+        let viewport = list.convert(list.bounds, to: nil)
+        let rowHeight = (content.height - 8 - CGFloat(ids.count - 1)) / CGFloat(ids.count)
+        func inView(_ y: CGFloat, x: CGFloat = 100) -> CGPoint { CGPoint(x: viewport.minX + x, y: window.height - viewport.maxY + y) }
+        func row(_ index: Int) -> CGPoint { inView(4 + CGFloat(index) * (rowHeight + 1) + rowHeight / 2 - list.contentView.bounds.minY) }
+
+        // Dragged onto the third row, the first stays.
+        try await window.drag(from: row(0), to: row(2))
+        try await Task.sleep(for: .milliseconds(400))
+        #expect(order() == "cl1 cl2 cl3 cl4 cl5 cl6 cl7")
+        // A click on CL1's Use switches Claude Code to it.
+        let titleHeight = NSHostingView(rootView: GroupAccountRow.buttonHeightTemplate).fittingSize.height
+        let use = inView(4 + 7 + titleHeight / 2, x: content.width - 6 - 8 - 10)
+        try await window.drag(from: use, to: use.moved(1, 1))
+        try #require(await until { store.claudeCodeAccountID == accounts[0].id }, "Use did not switch Claude Code")
+        #expect(f.defaultEmail == "cl1@example.test")
+        #expect(order() == "cl1 cl2 cl3 cl4 cl5 cl6 cl7")
+    }
+
     private func until(timeout: Duration = .seconds(5), _ condition: () -> Bool) async -> Bool {
         let clock = ContinuousClock(), deadline = clock.now.advanced(by: timeout)
         while !condition() {
@@ -267,6 +392,12 @@ struct GroupAccountListRenderingTests {
         ProviderSnapshot(provider: provider, updatedAt: updated, fiveHour: window(fiveHour, hours: 2.7), weekly: window(weekly, hours: 130),
                          modelWeeklies: models.compactMap { model in window(model.1, hours: 74).map { ModelWeeklySummary(label: model.0, window: $0) } },
                          planName: plan, sourceDescription: "Fixture", note: note, isStale: stale, requiresLogin: login, limitGroups: groups)
+    }
+
+    // A reading with the 5-hour limit alone, `percent` used and resetting in `hours`.
+    private static func reading(_ provider: ProviderKind, _ percent: Int, resets hours: Double) -> ProviderSnapshot {
+        ProviderSnapshot(provider: provider, updatedAt: now.addingTimeInterval(-60), fiveHour: window(percent, hours: hours), weekly: nil,
+                         modelWeeklies: [], planName: nil, sourceDescription: "Fixture", note: nil, isStale: false, requiresLogin: false)
     }
 
     private static func window(_ used: Int?, hours: Double) -> WindowSummary? {
@@ -323,6 +454,14 @@ struct GroupAccountListRenderingTests {
     @discardableResult
     private func draw<V: View>(_ view: V, appearance: NSAppearance.Name, height: CGFloat? = nil, to url: URL?) async throws -> NSSize {
         await Task.yield()
+        let (bitmap, size) = try picture(view, appearance: appearance, height: height)
+        #expect(bitmap.pixelsWide > 0 && bitmap.pixelsHigh > 0)
+        if let url { try bitmap.representation(using: .png, properties: [:])?.write(to: url) }
+        return size
+    }
+
+    // The view drawn on the panel's background, cut to `height` if given, and the size it asks for.
+    private func picture<V: View>(_ view: V, appearance: NSAppearance.Name = .aqua, height: CGFloat? = nil) throws -> (bitmap: NSBitmapImageRep, size: NSSize) {
         let host = NSHostingView(rootView: view.background(Color(nsColor: .windowBackgroundColor)))
         host.appearance = NSAppearance(named: appearance)
         let size = host.fittingSize
@@ -330,9 +469,18 @@ struct GroupAccountListRenderingTests {
         host.layoutSubtreeIfNeeded()
         let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
-        #expect(bitmap.pixelsWide > 0 && bitmap.pixelsHigh > 0)
-        if let url { try bitmap.representation(using: .png, properties: [:])?.write(to: url) }
-        return size
+        return (bitmap, size)
+    }
+
+    // The columns, in points from the left, where two pictures of a list differ in its header: the top 36 points, which
+    // hold the group's name and the buttons beside it.
+    private static func headerColumns(differingBetween a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> [CGFloat] {
+        let scale = CGFloat(a.pixelsWide) / a.size.width
+        var columns = Set<Int>()
+        for y in 0..<min(Int(36 * scale), a.pixelsHigh, b.pixelsHigh) {
+            for x in 0..<min(a.pixelsWide, b.pixelsWide) where a.colorAt(x: x, y: y) != b.colorAt(x: x, y: y) { columns.insert(x) }
+        }
+        return columns.sorted().map { CGFloat($0) / scale }
     }
 }
 
@@ -342,12 +490,17 @@ struct GroupAccountListRenderingTests {
 private final class ListWindow {
     private let window: NSWindow
 
-    init<V: View>(_ view: V, height: CGFloat) {
+    convenience init<V: View>(_ view: V, height: CGFloat) {
+        self.init(host: NSHostingView(rootView: view), height: height)
+    }
+
+    // `host` stays the caller's, to hand the view new values as the panel does.
+    init(host: NSView, height: CGFloat) {
         _ = NSApplication.shared
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: GroupAccountListView.width, height: height), styleMask: [.borderless],
                           backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: view)
+        window.contentView = host
         window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
         window.orderFrontRegardless()
         window.contentView?.layoutSubtreeIfNeeded()
@@ -393,4 +546,32 @@ private final class ListWindow {
 
 private extension CGPoint {
     func moved(_ dx: CGFloat, _ dy: CGFloat) -> CGPoint { CGPoint(x: x + dx, y: y + dy) }
+}
+
+// Where the list's rows are, as it measures them: from top to bottom, the order it shows.
+@MainActor
+private final class ListRows {
+    var frames: [UUID: CGRect] = [:]
+    var order: [UUID] { frames.sorted { $0.value.minY < $1.value.minY }.map(\.key) }
+}
+
+// A group's list as its panel shows it, handing the test where its rows are.
+private struct ListReadingRows: View {
+    let list: GroupAccountListView
+    let store: UsageStore
+    let rows: ListRows
+    var body: some View {
+        list.environmentObject(store)
+            .onPreferenceChange(ListRowFrames.self) { frames in MainActor.assumeIsolated { rows.frames = frames } }
+    }
+}
+
+// Holds back a reading until the test lets it go.
+private final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isOpen = false
+    func open() { lock.withLock { isOpen = true } }
+    func wait() async {
+        while !lock.withLock({ isOpen }) { try? await Task.sleep(for: .milliseconds(10)) }
+    }
 }

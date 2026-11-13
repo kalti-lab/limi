@@ -179,7 +179,7 @@ final class StatusBarController {
         dragSurface?.toolTip = accessibleDescription
         statusItem.button?.setAccessibilityLabel(accessibleDescription)
         if panel.rootView.accountIDs != shown {
-            panel.rootView = GroupPanelRoot(accountIDs: shown, groupID: groupID, store: store)
+            panel.rootView = GroupPanelRoot(accountIDs: shown, groupID: groupID, store: store, openings: panel.rootView.openings)
         }
     }
     // Draws the item again for the menu bar's new appearance, with the panel it had.
@@ -197,6 +197,8 @@ final class StatusBarController {
         if panel.isShown { panel.close() } else {
             // The login Claude Code uses may have been changed in a terminal since it was last read.
             store.claudeCodePanelWillOpen(group: groupID)
+            // A sorted list puts its rows in order afresh, by the numbers there are now.
+            panel.rootView.openings += 1
             panel.show(below: button)
         }
     }
@@ -207,8 +209,10 @@ struct GroupPanelRoot: View {
     let accountIDs: [UUID]
     let groupID: UUID
     let store: UsageStore
+    // How many times the panel has opened.
+    var openings = 0
     var body: some View {
-        GroupAccountListView(accountIDs: accountIDs, groupID: groupID).environmentObject(store)
+        GroupAccountListView(accountIDs: accountIDs, groupID: groupID, openings: openings).environmentObject(store)
     }
 }
 

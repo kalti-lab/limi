@@ -131,6 +131,7 @@
 "Language" = "언어";
 "Limit" = "한도";
 "Loading usage…" = "사용량을 불러오는 중…";
+"Manual" = "수동";
 "Menu Bar" = "메뉴 막대";
 "Move %@ account" = "%@ 계정 옮기기";
 "Move down" = "아래로 옮기기";
@@ -171,6 +172,7 @@
 "Rename" = "이름 변경";
 "Rename Account" = "계정 이름 변경";
 "Rename account" = "계정 이름 변경";
+"Reset time" = "초기화 시간";
 "Resets %@" = "%@ 초기화";
 "Resets in %@" = "%@ 후 초기화";
 "Resets in less than 1m" = "1분 안에 초기화";
@@ -200,6 +202,8 @@
 "Sign-in required · reconnect in Settings › Accounts" = "로그인 필요 · 설정 › 계정에서 다시 연결하세요";
 "Sign-in required. Reconnect the account." = "로그인이 필요합니다. 계정을 다시 연결하세요.";
 "Sign-in required. Reconnect this account in Settings › Accounts." = "로그인이 필요합니다. 설정 › 계정에서 이 계정을 다시 연결하세요.";
+"Sort by" = "정렬 기준";
+"Sort the list" = "목록 정렬";
 "Text Only" = "텍스트만";
 "The Anthropic usage API is rate-limited. Showing the last known good value and retrying automatically." = "Anthropic 사용량 API 요청이 너무 많습니다. 마지막으로 받은 값을 보여 주고 자동으로 다시 시도합니다.";
 "The CLI account changed during the request. Refresh again." = "요청하는 동안 CLI 계정이 바뀌었습니다. 다시 새로 고치세요.";
@@ -227,6 +231,7 @@
 "Unsupported account settings version. The settings file was preserved." = "지원하지 않는 계정 설정 버전입니다. 설정 파일은 그대로 두었습니다.";
 "Untitled" = "이름 없음";
 "Updated %@" = "%@ 업데이트";
+"Usage" = "사용량";
 "Usage line" = "사용량 줄";
 "Usage lines · %lld/%lld" = "사용량 줄 · %lld/%lld";
 "Usage values · %lld" = "사용량 값 · %lld";

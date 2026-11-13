@@ -7,6 +7,19 @@ enum GroupListWords {
     static func accounts(_ count: Int) -> String {
         count == 1 ? String(localized: "1 account") : String(localized: "\(count) accounts")
     }
+    static var sortBy: String { String(localized: "Sort by") }
+    static var sortHelp: String { String(localized: "Sort the list") }
+}
+
+extension GroupListSort {
+    /// The order's name on the list's sort button and in its menu.
+    var title: String {
+        switch self {
+        case .manual: String(localized: "Manual")
+        case .usage: String(localized: "Usage")
+        case .resetTime: String(localized: "Reset time")
+        }
+    }
 }
 
 // A group's panel shows all its accounts on one sheet, in the group's order: a row per account with every limit its
@@ -19,8 +32,13 @@ struct GroupAccountListView: View {
 
     let accountIDs: [UUID]
     let groupID: UUID
+    // How many times the panel has opened. A sorted list puts its rows in order afresh each time.
+    let openings: Int
     @EnvironmentObject private var store: UsageStore
     @State private var hovered: UUID?
+    // The order a sort by usage or reset time last made, kept until the next moment to sort, so rows do not jump as new
+    // numbers come in while someone reads them.
+    @State private var sorted: SortedRows?
     // Dragging a row reorders the group's accounts, the order of its chips in Settings.
     @State private var drag: ListRowDrag?
     @State private var settling = false
@@ -33,9 +51,11 @@ struct GroupAccountListView: View {
 
     // `hovered` is the row the pointer starts over, for drawing that look. `stepAnimation` nil scrolls each step at once:
     // a scroll animates only while the display is on, which a test cannot count on.
-    init(accountIDs: [UUID], groupID: UUID, hovered: UUID? = nil, stepAnimation: Animation? = ListAutoScroll.stepAnimation) {
+    init(accountIDs: [UUID], groupID: UUID, openings: Int = 0, hovered: UUID? = nil,
+         stepAnimation: Animation? = ListAutoScroll.stepAnimation) {
         self.accountIDs = accountIDs
         self.groupID = groupID
+        self.openings = openings
         self.stepAnimation = stepAnimation
         _hovered = State(initialValue: hovered)
     }
@@ -43,14 +63,52 @@ struct GroupAccountListView: View {
     private var accounts: [UsageAccount] {
         var ids = MenuBarLayout.unique(accountIDs)
         // The store's order once it holds the same rows: a dropped row stays where it was put, though the panel hands
-        // this view the new order a moment later.
-        if let live = liveOrder, live.count == ids.count, Set(live) == Set(ids) { ids = live }
+        // this view the new order a moment later. A sort by usage or reset time puts the same rows in its order.
+        if let live = liveOrder, live.count == ids.count, Set(live) == Set(ids) { ids = sortedOrder ?? live }
         return ids.compactMap { id in store.accounts.first { $0.id == id && !$0.deletionPending } }
     }
 
-    /// The rows the store gives this list now, in its order, as the panel will show them.
-    private var liveOrder: [UUID]? {
-        store.displayConfiguration.effectiveLayouts.first { $0.id == groupID }.map { store.panelAccountIDs(for: $0) }
+    private var layout: MenuBarLayout? { store.displayConfiguration.effectiveLayouts.first { $0.id == groupID } }
+    private var sort: GroupListSort { layout?.effectiveListSort ?? .manual }
+
+    /// The rows the store gives this list now, in the group's own order, as the panel will show them.
+    private var liveOrder: [UUID]? { layout.map { store.panelAccountIDs(for: $0) } }
+
+    /// The rows in the order of a sort by usage or reset time, nil for manual: the order made at the last moment to sort
+    /// while that moment stands, otherwise the order the sort makes now, which `keepSortedOrder` then keeps.
+    private var sortedOrder: [UUID]? {
+        guard let layout, layout.effectiveListSort != .manual else { return nil }
+        if let sorted, sorted.moment == sortMoment(layout) { return sorted.order }
+        return store.sortedPanelAccountIDs(for: layout)
+    }
+
+    /// When a sorted list puts its rows in order afresh: the panel opens, it shows another group or other accounts, the
+    /// sort changes, or a refresh round ends. Numbers that come in between leave the rows where they are.
+    private struct SortMoment: Equatable {
+        var openings: Int
+        var group: UUID
+        var sort: GroupListSort
+        var rows: Set<UUID>
+        var round: Date?
+    }
+
+    private struct SortedRows {
+        var moment: SortMoment
+        var order: [UUID]
+    }
+
+    private func sortMoment(_ layout: MenuBarLayout) -> SortMoment {
+        SortMoment(openings: openings, group: groupID, sort: layout.effectiveListSort,
+                   rows: Set(store.panelAccountIDs(for: layout)), round: store.lastRefresh)
+    }
+
+    private func keepSortedOrder() {
+        guard let layout, layout.effectiveListSort != .manual else { sorted = nil; return }
+        let order = store.sortedPanelAccountIDs(for: layout)
+        // The rows moved under a pointer that did not: no row shows the pointer's look or buttons until it moves, rather
+        // than the row it was over showing them somewhere else.
+        if let previous = sorted?.order, previous != order { hovered = nil }
+        sorted = SortedRows(moment: sortMoment(layout), order: order)
     }
 
     var body: some View {
@@ -89,6 +147,7 @@ struct GroupAccountListView: View {
         .onChange(of: [groupID] + accountIDs, initial: true) { _, _ in
             store.claudeCodePanelShows(self.accounts.filter { $0.provider == .claude }.map(\.id), group: groupID)
         }
+        .onChange(of: layout.map(sortMoment), initial: true) { _, _ in keepSortedOrder() }
         // The gesture ended without a drop, as when its row went away.
         .onChange(of: dragging) { _, now in if !now { dragStopped() } }
         .onDisappear { drag = nil; settling = false }
@@ -109,7 +168,7 @@ struct GroupAccountListView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    let name = store.displayConfiguration.effectiveLayouts.first { $0.id == groupID }?.name ?? ""
+                    let name = layout?.name ?? ""
                     Group { if name.isEmpty { Text("Untitled") } else { Text(verbatim: name) } }
                         .font(.title3.weight(.bold)).lineLimit(1)
                     Text(GroupListWords.accounts(accounts.count))
@@ -118,6 +177,7 @@ struct GroupAccountListView: View {
                 Spacer(minLength: 8)
                 // Side by side, so their hover backgrounds touch.
                 HStack(spacing: 0) {
+                    sortMenu
                     if accounts.contains(where: { store.refreshingAccounts.contains($0.id) }) {
                         // The room the refresh button takes, so the header does not shift while it turns.
                         ProgressView().controlSize(.small).frame(width: 24, height: 24)
@@ -144,9 +204,40 @@ struct GroupAccountListView: View {
         .padding(.bottom, 4)
     }
 
+    // The sort in use between an up-down arrow and a small chevron; a click opens the sorts, the one in use checked.
+    private var sortMenu: some View {
+        let sort = sort
+        return Menu {
+            Section(GroupListWords.sortBy) {
+                Picker(GroupListWords.sortBy, selection: Binding(get: { sort }, set: { store.setListSort($0, for: groupID) })) {
+                    ForEach(GroupListSort.allCases) { Text(verbatim: $0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .medium))
+                Text(verbatim: sort.title).font(.callout).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold)).foregroundStyle(.secondary)
+            }
+            // As tall as the icons beside it, a little wider on each side for the words.
+            .frame(height: 16)
+            .padding(.horizontal, 2)
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(GroupListWords.sortHelp)
+        .accessibilityLabel(GroupListWords.sortBy)
+        .accessibilityValue(sort.title)
+    }
+
     private func rowList(_ accounts: [UsageAccount], claudeCode: [UUID: ClaudeCodePanel]) -> some View {
         let refreshed = store.refreshAccountIDs
         let order = accounts.map(\.id)
+        // Only the group's own order is set by hand. A sorted list starts no drag; presses and Use work as ever.
+        let draggable: GestureMask = sort == .manual ? .all : .subviews
         return VStack(spacing: 0) {
             ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
                 // One view for the divider and the row: two would share the row's id, and scrolling to it would find the
@@ -163,7 +254,7 @@ struct GroupAccountListView: View {
                         .highPriorityGesture(DragGesture(minimumDistance: 4, coordinateSpace: .named(Self.viewport))
                             .updating($dragging) { _, state, _ in state = true }
                             .onChanged { dragMoved(account.id, $0, order: order) }
-                            .onEnded { dragEnded($0) })
+                            .onEnded { dragEnded($0) }, including: draggable)
                         .opacity(drag?.source == account.id ? 0 : 1)
                         .offset(drag?.offset(for: account.id) ?? .zero)
                         .animation(.snappy(duration: 0.18), value: drag?.target)
@@ -334,8 +425,9 @@ struct GroupAccountListView: View {
 
 // MARK: Dragging rows
 
-// Each row's place in the list's content, which stays put as the list scrolls.
-private struct ListRowFrames: PreferenceKey {
+// Each row's place in the list's content, which stays put as the list scrolls. Read from outside too: the rows from top
+// to bottom are the order the list shows.
+struct ListRowFrames: PreferenceKey {
     static var defaultValue: [UUID: CGRect] { [:] }
     static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
