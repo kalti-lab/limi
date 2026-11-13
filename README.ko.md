@@ -34,7 +34,7 @@
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/settings-accounts.png" width="400" alt="Limi 설정의 계정 탭: Claude 둘과 Codex 하나"><br>
+      <img src="docs/images/settings-accounts.png" width="400" alt="Limi 설정의 계정 탭: Claude 셋과 Codex 하나, Claude Code가 쓰는 계정에 사용 중 표시"><br>
       <b>계정 여러 개</b><br><sub>Claude Code와 Codex 계정을 함께 등록</sub>
     </td>
     <td align="center" valign="top" width="50%">
@@ -44,12 +44,12 @@
   </tr>
   <tr>
     <td align="center" valign="top">
-      <img src="docs/images/settings-menubar.png" width="340" alt="Limi 설정의 메뉴 막대 탭: 그룹, 그룹의 계정, 모양, 사용량 줄"><br>
+      <img src="docs/images/settings-menubar.png" width="320" alt="Limi 설정의 메뉴 막대 탭: 그룹, 그룹의 계정, 모양, 사용량 줄"><br>
       <b>메뉴 막대 꾸미기</b><br><sub>그룹과 그 계정, 모양, 보여 줄 한도를 원하는 대로</sub>
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/readme-popover-claude2.png" width="320" alt="Limi 패널: 그룹의 계정 목록, 계정마다 한도와 초기화까지 남은 시간"><br>
-      <b>그룹마다 목록 한 장</b><br><sub>그룹에 넣은 계정을 한도와 함께 모두</sub>
+      <img src="docs/images/readme-popover-claude2.png" width="400" alt="Limi 패널: 그룹의 계정 목록과 정렬 단추, 계정마다 한도와 초기화까지 남은 시간"><br>
+      <b>그룹마다 목록 한 장</b><br><sub>그룹에 넣은 계정을 한도와 함께 모두, 원하는 순서로</sub>
     </td>
   </tr>
 </table>
@@ -62,7 +62,7 @@
       <img src="docs/images/cap-switch.svg" width="52" height="52" alt=""><br>
       <b>Claude Code 계정을 클릭 한 번에</b> <sup>새 기능</sup><br>
       평소 쓰는 <code>claude</code>가 쓸 계정을 내 Claude 계정 가운데서 고릅니다. 처음 한 번 로그인해 두면 브라우저가 뜨지 않고, 열린 세션도 30초 안에 따라옵니다.<br><br>
-      <img src="docs/images/claude-code-switch.png" width="300" alt="Limi 패널: 그룹 목록의 Claude 계정 줄과 쓰기 단추">
+      <img src="docs/images/claude-code-switch.png" width="396" alt="Limi 패널: 그룹 목록에서 사용 중인 Claude 계정 줄. 다른 Claude 계정 줄에 마우스를 올리면 쓰기 단추가 보임">
     </td>
   </tr>
   <tr>
@@ -96,7 +96,7 @@
 - **Claude Code에서 쓰기**: 그룹 목록의 Claude 계정에서 **쓰기**를 누르면, 평소 쓰는 `claude`의 로그인이 클릭 한 번에 그 계정으로 바뀝니다. 바꿀 때마다 브라우저로 로그인하지 않아도 됩니다([동작 방식](#claude-code에서-쓰기)).
 - **Antigravity**(실험 기능): 이 맥의 `agy`나 Antigravity 앱에 로그인된 계정 하나를 봅니다.
 - 서비스가 알려 주면 Claude의 모델별 주간 한도와 Antigravity의 모델 그룹별 한도도 보여 줍니다.
-- 메뉴 막대 그룹에 계정을 개수 제한 없이 넣고(**설정 › 메뉴 막대**의 **이 그룹의 계정**), 그룹을 누르면 그 계정을 모두 목록 한 장으로 봅니다. 줄마다 계정 배지, 요금제, 주소와 5시간·주간 한도가 있고, 서비스가 알려 주면 모델별 주간 한도도 있습니다. 칸마다 %와 초기화까지 남은 시간을 보여 줍니다.
+- 메뉴 막대 그룹에 계정을 개수 제한 없이 넣고(**설정 › 메뉴 막대**의 **이 그룹의 계정**), 그룹을 누르면 그 계정을 모두 목록 한 장으로 봅니다. 줄마다 계정 배지, 요금제, 주소와 5시간·주간 한도가 있고, 서비스가 알려 주면 모델별 주간 한도도 있습니다. 칸마다 %와 초기화까지 남은 시간을 보여 줍니다. 목록 위 **정렬** 단추로 내가 정한 순서(**수동**)로 두거나, **5시간 초기화**·**주간 초기화**가 가까운 계정부터 놓습니다. 그룹마다 고른 것을 기억합니다.
 - 그룹에 넣은 계정의 한도 가운데 세 줄까지 골라 메뉴 막대에 보여 줍니다(링 게이지는 한 줄, 텍스트만은 줄 수 제한 없음). 그룹·줄·계정은 끌어다 놓아 순서를 바꿉니다. 그룹 안 계정 순서는 설정의 칩이나 목록의 줄을 끌어 바꿉니다.
 - 읽지 못한 값은 0%가 아니라 `--`로 보여 주고, 지난 값을 보여 줄 때는 저장된 값이라고 표시합니다.
 - 1, 2, 5, 10분 중 고른 간격으로 새로 고치고, 바로 새로 고칠 수도 있습니다. 그룹에 넣은 계정은 메뉴 막대 줄에 없어도 새로 고칩니다. 서비스마다 한 번에 한 계정씩, 요청 사이를 잠깐 쉬며 고칩니다(Claude 1초, Codex 0.5초). **메뉴 막대에 표시**를 끈 그룹은 건너뜁니다.

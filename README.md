@@ -34,7 +34,7 @@
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/settings-accounts.png" width="400" alt="Limi Settings, Accounts tab: two Claude accounts and one Codex account"><br>
+      <img src="docs/images/settings-accounts.png" width="400" alt="Limi Settings, Accounts tab: three Claude accounts and one Codex account, with the one Claude Code uses marked In use"><br>
       <b>Several accounts</b><br><sub>Claude Code and Codex accounts side by side</sub>
     </td>
     <td align="center" valign="top" width="50%">
@@ -44,12 +44,12 @@
   </tr>
   <tr>
     <td align="center" valign="top">
-      <img src="docs/images/settings-menubar.png" width="340" alt="Limi Settings, Menu Bar tab: groups, the accounts in a group, styles and usage lines"><br>
+      <img src="docs/images/settings-menubar.png" width="320" alt="Limi Settings, Menu Bar tab: groups, the accounts in a group, styles and usage lines"><br>
       <b>Make the menu bar yours</b><br><sub>Groups and their accounts, styles and the limits to show</sub>
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/readme-popover-claude2.png" width="320" alt="Limi panel: a group's accounts in one list, each with its limits and when they reset"><br>
-      <b>One list per group</b><br><sub>Every account in the group, with its limits</sub>
+      <img src="docs/images/readme-popover-claude2.png" width="400" alt="Limi panel: a group's accounts in one list with a Sort button, each with its limits and when they reset"><br>
+      <b>One list per group</b><br><sub>Every account in the group, with its limits, sorted your way</sub>
     </td>
   </tr>
 </table>
@@ -62,7 +62,7 @@
       <img src="docs/images/cap-switch.svg" width="52" height="52" alt=""><br>
       <b>Switch Claude Code accounts in one click</b> <sup>NEW</sup><br>
       Choose which of your Claude accounts your own <code>claude</code> uses. After a one-time sign-in no browser opens, and open sessions follow within 30 seconds.<br><br>
-      <img src="docs/images/claude-code-switch.png" width="300" alt="Limi panel: a Claude account's row in a group's list, with the Use button">
+      <img src="docs/images/claude-code-switch.png" width="396" alt="Limi panel: a Claude account's row in a group's list, marked In use. Point at another Claude account's row to see its Use button">
     </td>
   </tr>
   <tr>
@@ -96,7 +96,7 @@ Also in Limi:
 - **Use in Claude Code**: press **Use** on a Claude account in a group's list to switch the login your own `claude` uses to that account in one click, without the browser each time ([how it works](#use-in-claude-code)).
 - **Antigravity** (experimental): the one account signed in to `agy` or the Antigravity app on this Mac.
 - Claude's per-model weekly limits and Antigravity's model groups, when the service reports them.
-- Put any number of accounts in a menu bar group (**Accounts in this group** in **Settings › Menu Bar**), and click the group to see them all in one list. Each row has the account's badge, plan and address, its 5-hour and weekly limits, and each model's weekly limit when the service reports it, every cell with a percentage and when it resets.
+- Put any number of accounts in a menu bar group (**Accounts in this group** in **Settings › Menu Bar**), and click the group to see them all in one list. Each row has the account's badge, plan and address, its 5-hour and weekly limits, and each model's weekly limit when the service reports it, every cell with a percentage and when it resets. Click **Sort** above the list to keep your own order (**Manual**) or put the soonest **5-hour reset** or **Weekly reset** first. Each group remembers its choice.
 - Up to three usage lines in each menu bar group, taken from the group's accounts and their limits (Ring Gauge shows one, Text Only any number). Drag groups, lines and accounts to reorder them, and a group's accounts by their chips in Settings or their rows in the list.
 - A value Limi could not read shows as `--`, never a made-up 0%, and older values are marked as cached.
 - Refreshes every 1, 2, 5 or 10 minutes, or on demand. Every account in a group is refreshed, even one without a line in the menu bar: one account at a time per service, with a short pause between requests (1 second for Claude, 0.5 seconds for Codex). Groups with **Show in menu bar** turned off are skipped.
