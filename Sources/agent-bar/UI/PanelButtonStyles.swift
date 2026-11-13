@@ -29,11 +29,12 @@ private struct PanelButtonBody: View {
         content
             .padding(kind == .icon ? EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4)
                                    : EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
-            .background(shape.fill(Color.primary.opacity(fill)))
+            // Only the background fades. Animated, the words' grey-to-full change is drawn as a cross-fade, so they
+            // dim for a moment before they darken.
+            .background(shape.fill(Color.primary.opacity(fill))
+                .animation(.easeOut(duration: configuration.isPressed ? 0.08 : 0.12), value: fill))
             .contentShape(shape)
             .onHover { hovering = $0 }
-            .animation(.easeOut(duration: 0.12), value: hovering)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 
     @ViewBuilder private var content: some View {

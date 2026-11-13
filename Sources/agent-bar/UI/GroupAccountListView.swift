@@ -184,10 +184,11 @@ struct GroupAccountListView: View {
                         // The room the refresh button takes, so the header does not shift while it turns.
                         ProgressView().controlSize(.small).frame(width: 24, height: 24)
                     } else {
-                        Button { store.refreshNow() } label: { Image(systemName: "arrow.clockwise") }
+                        // Both icons take the same square, so their hover backgrounds are as wide as each other.
+                        Button { store.refreshNow() } label: { Image(systemName: "arrow.clockwise").frame(width: 16, height: 16) }
                             .help("Refresh now")
                     }
-                    Button { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID) } label: { Image(systemName: "gearshape") }
+                    Button { SettingsWindowController.shared.show(tab: .menuBar, groupID: groupID) } label: { Image(systemName: "gearshape").frame(width: 16, height: 16) }
                         .help("Settings")
                 }
                 .buttonStyle(PanelButtonStyle(kind: .icon))
