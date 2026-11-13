@@ -94,6 +94,7 @@
 그 밖에 이런 것도 됩니다.
 
 - **Claude Code에서 쓰기**: 그룹 목록의 Claude 계정에서 **쓰기**를 누르면, 평소 쓰는 `claude`의 로그인이 클릭 한 번에 그 계정으로 바뀝니다. 바꿀 때마다 브라우저로 로그인하지 않아도 됩니다([동작 방식](#claude-code에서-쓰기)).
+- **초기화 쿠폰** <sup>NEW</sup>: Codex가 계정에 한도 초기화 쿠폰을 주면, 그룹 목록의 그 계정 줄에 몇 장 있는지와 가장 먼저 만료되는 날이 나옵니다. **초기화**를 누르면 같은 줄에서 한 번 묻고, **확인**을 누르면 가장 먼저 만료되는 쿠폰을 씁니다. 결과는 몇 초 동안 보입니다. Claude 계정도 Claude가 쿠폰을 주면 같은 줄이 나오지만, 지금까지 Limi에는 주지 않았습니다.
 - **Antigravity**(실험 기능): 이 맥의 `agy`나 Antigravity 앱에 로그인된 계정 하나를 봅니다.
 - 서비스가 알려 주면 Claude의 모델별 주간 한도와 Antigravity의 모델 그룹별 한도도 보여 줍니다.
 - 메뉴 막대 그룹에 계정을 개수 제한 없이 넣고(**설정 › 메뉴 막대**의 **이 그룹의 계정**), 그룹을 누르면 그 계정을 모두 목록 한 장으로 봅니다. 줄마다 계정 배지, 요금제, 주소와 5시간·주간 한도가 있고, 서비스가 알려 주면 모델별 주간 한도도 있습니다. 칸마다 %와 초기화까지 남은 시간을 보여 줍니다. 목록 위 **정렬** 단추로 내가 정한 순서(**수동**)로 두거나, **5시간 초기화**·**주간 초기화**가 가까운 계정부터 놓습니다. 그룹마다 고른 것을 기억합니다.
@@ -178,8 +179,8 @@ open Limi.app
 Limi에는 서버가 없고, Limi에 따로 가입할 필요도 없습니다. 이 맥에 저장된 로그인 정보를 읽어 각 서비스에 직접 묻습니다.
 
 - **로그인 정보.** 추가한 계정마다 `~/.agentbar/multi-account-v1/` 안에 내 macOS 사용자만 읽을 수 있는 폴더가 생기고, Limi는 거기 둔 로그인 정보를 읽습니다. 평소 쓰는 `claude`, `codex`, `agy`의 로그인을 가져오거나 바꾸지 않습니다. 다만 **쓰기**를 누르면 `claude`의 로그인을 바꿉니다([아래](#claude-code에서-쓰기) 참고). 설정에서 계정을 지우면 그 계정의 로그인 정보와 저장된 사용량도 지워집니다.
-- **Claude.** Limi가 계정 토큰으로 Anthropic OAuth 사용량 API(`api.anthropic.com/api/oauth/usage`)를 직접 부르고, 요청에는 `Limi/<버전>`이라고 Limi 이름을 밝힙니다. 토큰이 만료되면 Limi가 리프레시 토큰으로 직접 갱신하는데, Limi가 관리하는 계정만 갱신합니다. 로그인 직후 Claude Code가 키체인에 저장한 로그인 정보를 계정 폴더에 한 번 복사하고, 그 뒤로는 그 파일만 읽습니다.
-- **Codex.** 공식 `codex app-server`(`account/read`, `account/rateLimits/read`)로 읽습니다. 계정마다 `CODEX_HOME`을 따로 두고 띄우며, 네트워크 요청은 Codex CLI가 합니다.
+- **Claude.** Limi가 계정 토큰으로 Anthropic OAuth 사용량 API(`api.anthropic.com/api/oauth/usage`)를 직접 부르고, 요청에는 `Limi/<버전>`이라고 Limi 이름을 밝힙니다. 토큰이 만료되면 Limi가 리프레시 토큰으로 직접 갱신하는데, Limi가 관리하는 계정만 갱신합니다. 로그인 직후 Claude Code가 키체인에 저장한 로그인 정보를 계정 폴더에 한 번 복사하고, 그 뒤로는 그 파일만 읽습니다. 초기화 쿠폰을 보여 주려고 30분마다(쿠폰을 받을 수 없는 계정은 6시간마다) 같은 요청에 `cedar_ember=1&skip_spend=1`을 붙입니다. Claude Code가 쿠폰을 물을 때와 같은 방식입니다. 쿠폰에서 **확인**을 눌렀을 때만 계정 토큰으로 `POST api.anthropic.com/api/organizations/<조직>/reset_rate_limits`를 보내고, 조직은 그 계정의 Claude Code 설정에서 읽습니다. 둘 다 공개 문서에 없는 방식입니다.
+- **Codex.** 공식 `codex app-server`(`account/read`, `account/rateLimits/read`)로 읽습니다. 초기화 쿠폰에서 **확인**을 눌렀을 때만 `account/rateLimitResetCredit/consume`을 부릅니다. 계정마다 `CODEX_HOME`을 따로 두고 띄우며, 네트워크 요청은 Codex CLI가 합니다.
 - **Antigravity.** Antigravity 로그인 정보는 Limi가 갖고 있지 않습니다. Limi는 `agy -p /usage`를 실행해 읽는데, 이 명령은 모델을 돌리지 않고 한도 보고만 출력하므로 한도를 쓰지 않습니다. 터미널 없이, 브라우저를 열 수 없는 상태로 실행하므로 `agy`가 로그인되어 있지 않으면 바로 멈추고 계정에 로그인하라는 안내가 뜹니다. `agy`가 없으면 Antigravity 앱이 열려 있는 동안 앱의 로컬 서버(`127.0.0.1`)에 묻습니다.
 - **칼티로 보내는 정보는 없습니다.** 분석 도구나 사용 통계 수집도 없습니다. kalti.co.kr에는 업데이트를 확인할 때만 접속하고, 업데이트 파일은 GitHub 릴리스에서 받습니다.
 
@@ -197,7 +198,7 @@ Limi에는 서버가 없고, Limi에 따로 가입할 필요도 없습니다. �
 
 ### Claude와 Anthropic 약관
 
-Anthropic의 [Claude Code 약관](https://code.claude.com/docs/en/legal-and-compliance)은 Claude 로그인을 보관하는 앱을 제한합니다. 그래서 Anthropic이 언제든 이 방식을 막을 수 있습니다. Limi는 처음 Claude 계정을 추가하기 전에 이 점을 알리고 한 번 동의를 받습니다. Anthropic이 막으면 다시 연결해도 소용이 없으므로, 다시 연결하라고 하지 않고 막혔다고 알려 줍니다. **쓰기**는 누를 때만, 직접 로그인한 내 계정끼리만 바꿉니다. 한도에 닿았다고 저절로 바꾸지는 않습니다.
+Anthropic의 [Claude Code 약관](https://code.claude.com/docs/en/legal-and-compliance)은 Claude 로그인을 보관하는 앱을 제한합니다. 그래서 Anthropic이 언제든 이 방식을 막을 수 있습니다. Limi는 처음 Claude 계정을 추가하기 전에 이 점을 알리고 한 번 동의를 받습니다. Anthropic이 막으면 다시 연결해도 소용이 없으므로, 다시 연결하라고 하지 않고 막혔다고 알려 줍니다. **쓰기**는 누를 때만, 직접 로그인한 내 계정끼리만 바꿉니다. 한도에 닿았다고 저절로 바꾸지는 않습니다. Claude 초기화 쿠폰은 같은 API의 공개되지 않은 부분을 쓰므로 언제든 안 될 수 있고, Limi는 **확인**을 눌렀을 때만 쿠폰을 씁니다.
 
 ### Antigravity와 Google 약관
 
