@@ -24,12 +24,14 @@ struct CodexUsageProvider: UsageProviding {
                 let data = try JSONSerialization.data(withJSONObject: ["result": response])
                 let payload = try JSONDecoder().decode(CodexRateLimitResponse.self, from: data)
                 let result = CodexRateLimitMapper.map(payload.result.rateLimits)
-                return ProviderSnapshot(provider: .codex, updatedAt: .now,
+                var snapshot = ProviderSnapshot(provider: .codex, updatedAt: .now,
                     fiveHour: result.fiveHourUsedPercent.map { WindowSummary(tokens: $0, limitTokens: 100, resetAt: result.fiveHourResetAt, displayStyle: .percentage) },
                     weekly: result.weeklyUsedPercent.map { WindowSummary(tokens: $0, limitTokens: 100, resetAt: result.weeklyResetAt, displayStyle: .percentage) },
                     modelWeeklies: [], planName: result.planName,
                     sourceDescription: "Codex app-server account/rateLimits/read",
                     note: String(localized: "Account-wide Codex usage limits."), isStale: false, requiresLogin: false)
+                snapshot.resetCoupons = CodexResetCredits.coupons(from: response)
+                return snapshot
             } catch {
                 var failed = ProviderSnapshot.placeholder(for: .codex).failed(error.localizedDescription,
                     requiresLogin: (error as? AccountError).map { if case .loginRequired = $0 { return true }; return false } ?? false)

@@ -326,3 +326,28 @@
 "This removes only the selected account’s %@ credentials, usage cache and the sign-in saved for Claude Code. External CLI sign-ins, including the one Claude Code uses, are preserved." = "선택한 계정의 %@ 자격 증명과 사용량 캐시, Claude Code용으로 저장한 로그인만 삭제합니다. CLI 로그인은 Claude Code가 지금 쓰는 것까지 그대로 남습니다.";
 "Delete and Reconnect wait until Claude Code has switched accounts." = "Claude Code 계정을 다 바꿀 때까지 삭제와 다시 연결은 기다립니다.";
 "Delete and Reconnect wait until %@ has checked Claude Code." = "%@ 앱이 Claude Code를 다 확인할 때까지 삭제와 다시 연결은 기다립니다.";
+
+/* Usage-reset coupons on a group's account list. */
+"Reset" = "초기화";
+"OK" = "확인";
+"Resetting…" = "초기화하는 중…";
+"1 reset coupon" = "초기화 쿠폰 1장";
+"%lld reset coupons" = "초기화 쿠폰 %lld장";
+"5-hour only" = "5시간만";
+"expires %@" = "%@ 만료";
+"1 expires %@" = "1장은 %@ 만료";
+"%lld expire %@" = "%lld장은 %@ 만료";
+"Click to reset this account's limits with a coupon." = "누르면 쿠폰으로 이 계정의 한도를 초기화합니다.";
+"Use 1 coupon to reset 5h and weekly now?" = "쿠폰 1장으로 5시간·주간 한도를 지금 초기화할까요?";
+"Use 1 coupon to reset only the 5h limit?" = "쿠폰 1장으로 5시간 한도만 지금 초기화할까요?";
+"The 5-hour limit is reset." = "5시간 한도를 초기화했습니다.";
+"The 5-hour and weekly limits are reset." = "5시간·주간 한도를 초기화했습니다.";
+"1 coupon left." = "쿠폰 1장 남음.";
+"%lld coupons left." = "쿠폰 %lld장 남음.";
+"Nothing to reset yet. The coupon wasn't used." = "아직 초기화할 사용량이 없습니다. 쿠폰은 쓰지 않았습니다.";
+"No coupons left." = "남은 쿠폰이 없습니다.";
+"Couldn't reset. Sign in again in Settings › Accounts." = "초기화하지 못했습니다. 설정 › 계정에서 다시 로그인하세요.";
+"Couldn't reset. Try again in a moment." = "초기화하지 못했습니다. 잠시 뒤 다시 해 보세요.";
+"weekly only" = "주간만";
+"Use 1 coupon to reset only the weekly limit?" = "쿠폰 1장으로 주간 한도만 지금 초기화할까요?";
+"The weekly limit is reset." = "주간 한도를 초기화했습니다.";

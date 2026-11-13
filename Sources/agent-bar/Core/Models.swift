@@ -126,6 +126,8 @@ struct ProviderSnapshot: Equatable, Codable, Sendable {
     /// Antigravity's model groups. The first also fills `fiveHour`/`weekly`,
     /// so lines that show those keep working.
     var limitGroups: [LimitGroupSummary]? = nil
+    /// Usage-reset coupons the service reported with this usage. Dropped when the usage is only cached.
+    var resetCoupons: UsageResetCoupons? = nil
 
     var displayedModelWeeklies: [ModelWeeklySummary] {
         guard provider == .claude else { return modelWeeklies }

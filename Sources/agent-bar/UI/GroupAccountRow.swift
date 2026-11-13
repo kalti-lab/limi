@@ -11,6 +11,10 @@ struct GroupAccountRow: View {
         var confirm: () -> Void = {}
         var decline: () -> Void = {}
         var openLog: (() -> Void)? = nil
+        // "Reset" on the coupon line, then OK and Cancel on its question.
+        var useCoupon: () -> Void = {}
+        var confirmCoupon: () -> Void = {}
+        var cancelCoupon: () -> Void = {}
     }
 
     static let cellsPerLine = 3
@@ -27,6 +31,8 @@ struct GroupAccountRow: View {
     var claudeCode: ClaudeCodePanel = .hidden
     // The pointer is over the row: a light background, and the Claude Code button that waits for it shows.
     var highlighted = false
+    // The account's usage-reset coupons, on a line under the bars while it has one or one is being used.
+    var coupon: CouponPanel = .none
     var actions = Actions()
 
     var body: some View {
@@ -35,6 +41,10 @@ struct GroupAccountRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 titleLine
                 cells
+                if coupon.shows {
+                    CouponLineView(panel: coupon, use: actions.useCoupon, confirm: actions.confirmCoupon,
+                                   cancel: actions.cancelCoupon)
+                }
                 // Only what needs attention; a fresh account says nothing, and the footer says when the list was updated.
                 if status(at: .now).tone != .ok {
                     TimelineView(.periodic(from: .now, by: 30)) { context in AccountStatusLine(status: status(at: context.date)) }

@@ -310,11 +310,15 @@ struct GroupAccountListView: View {
             claudeCode: claudeCode,
             // Not while a row is dragged: its buttons would show on whatever row the pointer passes.
             highlighted: hovered == account.id && drag == nil,
+            coupon: store.couponPanel(for: account),
             actions: .init(use: { store.useInClaudeCode(account) },
                            setUp: { SettingsWindowController.shared.show(tab: .accounts, groupID: groupID) },
                            confirm: { store.confirmClaudeCodeSwitch() },
                            decline: { store.cancelClaudeCodeConfirmation() },
-                           openLog: { store.openClaudeCodeLog() }))
+                           openLog: { store.openClaudeCodeLog() },
+                           useCoupon: { store.askToUseCoupon(account) },
+                           confirmCoupon: { store.confirmCoupon(account) },
+                           cancelCoupon: { store.cancelCoupon(account) }))
     }
 
     // MARK: Drag

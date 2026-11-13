@@ -46,6 +46,8 @@ final class UsageStore: ObservableObject {
     @Published var claudeCodePreparation: ClaudeCodePreparation?
     // Why the last sign-in for Claude Code did not work, per account, for Settings › Accounts.
     @Published var claudeCodeSetupFailures: [UUID: String] = [:]
+    // The coupon line of each account while a coupon is asked about, used, or has just been used.
+    @Published var couponLines: [UUID: CouponPanel.Line] = [:]
     // The one thing that can change Claude Code's own login. Nil turns the feature off (tests, development runs).
     let claudeCode: ClaudeCodeSwitcher?
     let claudeCodeBrowser: BrowserLoginLauncher
@@ -79,6 +81,10 @@ final class UsageStore: ObservableObject {
     private var pendingRefreshIDs: Set<UUID> = []
     private let automaticRefresh: Bool
     private let loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)?
+    // Uses a coupon in place of the service, for tests.
+    let useCouponOverride: (@Sendable (UsageAccount, UsageResetCoupons) async -> CouponOutcome)?
+    // How long how it ended stays on the coupon line.
+    let couponResultSeconds: Double
     // How long to rest between two usage requests to the same service. Empty: no rest.
     let requestSpacing: [ProviderKind: Duration]
     private var refreshTimer: Timer?
@@ -93,8 +99,12 @@ final class UsageStore: ObservableObject {
     init(settings: AppSettings, files: AccountFiles = AccountFiles(), autoRefresh: Bool = true,
          loadAccount: (@Sendable (UsageAccount, OperationControl) async -> ProviderSnapshot)? = nil,
          requestSpacing: [ProviderKind: Duration] = [:],
-         claudeCode: ClaudeCodeSwitcher? = nil, claudeCodeBrowser: BrowserLoginLauncher? = nil) {
+         claudeCode: ClaudeCodeSwitcher? = nil, claudeCodeBrowser: BrowserLoginLauncher? = nil,
+         useCoupon: (@Sendable (UsageAccount, UsageResetCoupons) async -> CouponOutcome)? = nil,
+         couponResultSeconds: Double = 6) {
         self.settings = settings
+        self.useCouponOverride = useCoupon
+        self.couponResultSeconds = couponResultSeconds
         self.automaticRefresh = autoRefresh
         self.loadAccount = loadAccount
         self.requestSpacing = requestSpacing
@@ -401,6 +411,26 @@ final class UsageStore: ObservableObject {
             updateRepresentatives()
         }
     }
+    // What a used coupon changes before the service is asked again: one fewer after a reset, none when the service has
+    // none left. After a reset the account's usage is read again at once, past the usual wait and Claude's cache.
+    func applyCouponOutcome(_ outcome: CouponOutcome, coupons: UsageResetCoupons, for account: UsageAccount) {
+        guard var snapshot = snapshots[account.id] else { return }
+        switch outcome {
+        case .reset: snapshot.resetCoupons = coupons.usingOne()
+        case .noCoupon: snapshot.resetCoupons = nil
+        case .nothingToReset, .signInAgain, .tryLater: return
+        }
+        snapshots[account.id] = snapshot
+        guard outcome == .reset else { return }
+        nextEligibleRefresh[account.id] = nil
+        if account.provider == .claude {
+            let cache = files.cache(account)
+            ClaudeUsageCache(overrideURL: cache, enabled: true).expire()
+            try? FileManager.default.removeItem(at: ClaudeCouponRecord.url(nextTo: cache))
+        }
+        requestRefresh([account.id])
+    }
+
     // The account's sign-in folder when its usage may be asked for now: it is still to be refreshed, has not been
     // reconnected or deleted since the round began, and is past the wait its last answer set.
     private func refreshDirectory(for account: UsageAccount) -> URL? {

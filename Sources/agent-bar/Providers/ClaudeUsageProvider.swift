@@ -50,7 +50,7 @@ struct ClaudeUsageProvider: UsageProviding {
                         } ?? WindowSummary(tokens: 0, limitTokens: 0, resetAt: cached.resetAt, displayStyle: .percentage)
                     )
                 }
-                return ProviderSnapshot(
+                var snapshot = ProviderSnapshot(
                     provider: .claude,
                     updatedAt: remoteResult.updatedAt,
                     fiveHour: WindowSummary(
@@ -72,6 +72,8 @@ struct ClaudeUsageProvider: UsageProviding {
                     isStale: remoteResult.isStale,
                     requiresLogin: Self.requiresLogin(for: remoteResult.data.apiError)
                 )
+                if !remoteResult.isStale { snapshot.resetCoupons = await readCoupons(accessToken: credentials.accessToken) }
+                return snapshot
             } catch {
                 let requiresLogin = Self.requiresLogin(for: error)
                 let blocked = (error as? AccountError).map { if case .message(let text) = $0 { return text == AnthropicAccessBlock.message }; return false } ?? false
@@ -766,6 +768,14 @@ struct ClaudeUsageCache {
         try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: cacheURL.path)
     }
 
+    // After a coupon cleared the limits: the next refresh asks again instead of showing the last minute's numbers. A
+    // wait the service asked for still holds.
+    func expire() {
+        guard let cache = try? readRaw(), cache.data.apiError != "rate-limited" else { return }
+        try? write(data: cache.data, timestamp: Date(timeIntervalSince1970: 0), credentialCacheKey: cache.credentialCacheKey,
+                   lastGoodData: cache.lastGoodData, lastGoodTimestamp: cache.lastGoodTimestamp)
+    }
+
     private func displayState(from cache: ClaudeUsageCacheRecord) -> ClaudeUsageCacheState {
         if cache.data.apiError == "rate-limited", let lastGoodData = cache.lastGoodData {
             return ClaudeUsageCacheState(
@@ -799,5 +809,110 @@ struct ClaudeUsageCache {
             ClaudeUsagePolicy.rateLimitedMaxTTL
         )
         return cache.timestamp.addingTimeInterval(backoff)
+    }
+}
+
+// Usage-reset coupons ("cedar_ember"). Read beside the usage only now and then (`ClaudeCouponRecord`), and only for an
+// account with a usage cache, which is every account in the app; used only when a person confirms.
+extension ClaudeUsageProvider {
+    func readCoupons(accessToken: String, now: Date = .now) async -> UsageResetCoupons? {
+        guard let cacheURL else { return nil }
+        let url = ClaudeCouponRecord.url(nextTo: cacheURL)
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let previous = (try? Data(contentsOf: url)).flatMap { try? decoder.decode(ClaudeCouponRecord.self, from: $0) }
+        func held(_ record: ClaudeCouponRecord?) -> UsageResetCoupons? {
+            // A coupon whose last day has passed is gone; the next read says what is left.
+            guard var coupons = record?.coupons else { return nil }
+            coupons.count -= coupons.expiries.filter { $0 <= now }.count
+            coupons.expiries.removeAll { $0 <= now }
+            return coupons.usable
+        }
+        if let previous, now < previous.nextCheck { return held(previous) }
+
+        var record = ClaudeCouponRecord(coupons: held(previous), nextCheck: now.addingTimeInterval(ClaudeCouponRecord.failureInterval))
+        do {
+            var request = URLRequest(url: ClaudeCedar.readURL)
+            request.httpMethod = "GET"
+            request.timeoutInterval = 15
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+            request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
+            try control.checkCancellation()
+            let (data, response) = try await transport(request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 200, let block = ClaudeCedar.block(from: data) {
+                // A service fault says nothing about the coupons; keep what was known.
+                if block.eligible == true || block.ineligibleReason != "unavailable" {
+                    record.coupons = ClaudeCedar.coupons(block, now: now)
+                    record.nextCheck = now.addingTimeInterval(block.eligible == true ? ClaudeCouponRecord.interval
+                                                                                     : ClaudeCouponRecord.ineligibleInterval)
+                }
+            } else if status == 200 {
+                // An answer without the block: this account has no coupons to read.
+                record.coupons = nil
+                record.nextCheck = now.addingTimeInterval(ClaudeCouponRecord.ineligibleInterval)
+            } else if status == 429 || status == 403 {
+                let wait = Self.parseRetryAfterSeconds((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After"))
+                record.nextCheck = now.addingTimeInterval(min(3600, max(ClaudeCouponRecord.failureInterval, TimeInterval(wait ?? 0))))
+            }
+        } catch {}
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        if let data = try? encoder.encode(record) {
+            try? data.write(to: url, options: .atomic)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        }
+        return record.coupons
+    }
+
+    // Uses the grant in `coupons.claim` for the account in `directory`. Its organization comes from the account's own
+    // config file, the way Claude Code finds it.
+    func useCoupon(_ coupons: UsageResetCoupons) async -> CouponOutcome {
+        guard case .claudeGrant(let grant) = coupons.claim else { return .tryLater }
+        return await Task.detached(priority: .userInitiated) { () -> CouponOutcome in
+            guard let organization = (try? ProviderCLI.claudeLocalIdentity(directory: directory))?.organizationID,
+                  let url = ClaudeCedar.claimURL(organization: organization) else { return .signInAgain }
+            let credentials: ClaudeCredentials
+            do {
+                var read = try readCredentials(allowExpired: true)
+                if read.isExpired {
+                    try await ClaudeCredentialRefresher.shared.refresh(data: read.rawData, directory: directory, transport: transport)
+                    read = try readCredentials()
+                }
+                credentials = read
+            } catch {
+                return Self.requiresLogin(for: error) ? .signInAgain : .tryLater
+            }
+            let requestID = await ClaudeClaimMemory.shared.requestID(for: grant)
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 25
+            request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["program": "cedar_ember", "grant_id": grant, "request_id": requestID])
+            do {
+                try control.checkCancellation()
+                let (data, response) = try await transport(request)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                switch status {
+                case 200...299:
+                    let answer = ClaudeCedar.outcome(data)
+                    if answer.unconfirmed { await ClaudeClaimMemory.shared.remember(requestID, for: grant) }
+                    else { await ClaudeClaimMemory.shared.forget(grant) }
+                    return answer.outcome
+                case 401: return .signInAgain
+                case 403: return AnthropicAccessBlock.matches(status: status, body: data) ? .tryLater : .signInAgain
+                case 429: return .tryLater
+                default:
+                    // It may have gone through; a second press sends the same request id.
+                    await ClaudeClaimMemory.shared.remember(requestID, for: grant)
+                    return .tryLater
+                }
+            } catch {
+                await ClaudeClaimMemory.shared.remember(requestID, for: grant)
+                return .tryLater
+            }
+        }.value
     }
 }
