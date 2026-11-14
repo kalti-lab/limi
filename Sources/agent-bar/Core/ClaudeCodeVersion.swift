@@ -49,3 +49,14 @@ enum ClaudeCodeVersionCheck: Equatable, Sendable {
         }
     }
 }
+
+enum ClaudeCouponClient {
+    // Read the installed version once at launch on the provider's background task.
+    static let userAgent: String? = {
+        guard let output = try? SystemClaudeCLI().run(["--version"],
+            environment: ProviderCLI.processEnvironment(),
+            directory: FileManager.default.homeDirectoryForCurrentUser, timeout: 5),
+            output.status == 0, let version = ClaudeCodeVersion(output: output.text) else { return nil }
+        return "claude-cli/\(version) (external, cli)"
+    }()
+}
