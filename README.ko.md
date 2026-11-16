@@ -38,7 +38,7 @@ Apple Silicon 맥, macOS 14 이상에서 쓸 수 있습니다.
 1. [kalti.co.kr/limi](https://kalti.co.kr/ko/limi/)나 [최신 릴리스](https://github.com/kalti-lab/limi/releases/latest)에서 **Limi.zip**을 내려받습니다.
 2. 압축을 풀고 **Limi.app**을 응용 프로그램 폴더로 옮긴 뒤 엽니다.
 
-Developer ID로 서명하고 Apple의 공증을 받은 앱입니다. [Sparkle](https://sparkle-project.org)로 스스로 업데이트하며, 새 버전은 하루에 한 번쯤 확인합니다. 그 밖에 필요한 것과 설정하는 법은 [소스 저장소의 README](https://github.com/jsiksn/limi/blob/main/README.ko.md)에 있습니다.
+Developer ID로 서명하고 Apple의 공증을 받은 앱입니다. [Sparkle](https://sparkle-project.org)로 스스로 업데이트하며, 새 버전은 하루에 한 번쯤 확인합니다. 바로 확인하려면 **설정 › 일반**에서 버전 옆의 <b>업데이트 확인…</b>을 누릅니다. 그 밖에 필요한 것과 설정하는 법은 [소스 저장소의 README](https://github.com/jsiksn/limi/blob/main/README.ko.md)에 있습니다.
 
 GitHub가 이 저장소의 릴리스마다 붙이는 "Source code" 파일에는 이 README만 들어 있습니다. 판마다의 코드는 [jsiksn/limi](https://github.com/jsiksn/limi)의 같은 태그에 있습니다.
 
